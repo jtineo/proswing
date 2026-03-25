@@ -1,0 +1,12 @@
+{
+  "name": "octoemployee-proswing",
+  "version": "1.0.0",
+  "description": "OctoEmployee AI coach for ProSwing Athletic Training",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

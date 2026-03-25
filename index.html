@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0D1B2A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="OctoEmployee" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>OctoEmployee</title>
+  <style>
+    :root {
+      --bg:     #0D1B2A;
+      --bg2:    #0f1e2e;
+      --bg3:    #132030;
+      --accent: #028090;
+      --bright: #02C39A;
+      --text:   #F7F9FC;
+      --muted:  #7B8FA1;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { display: flex; flex-direction: column; }
+
+    /* ── Auth screens ── */
+    #auth-root {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .auth-card {
+      background: var(--bg2);
+      border-radius: 16px;
+      padding: 36px 28px;
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .wordmark {
+      text-align: center;
+    }
+    .wordmark .logo {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--bright);
+      letter-spacing: -0.5px;
+    }
+    .wordmark .client-name {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .auth-card h2 {
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .auth-card p.subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+    input[type=tel], input[type=text], input[type=password] {
+      background: var(--bg3);
+      border: 1px solid #1e3045;
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 16px;
+      padding: 0 14px;
+      height: 48px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); }
+    input.red-border { border-color: #e05c5c !important; }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--text);
+      border: none;
+      border-radius: 10px;
+      height: 48px;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100%;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .msg-error { color: #e05c5c; font-size: 13px; text-align: center; }
+    .msg-warn  { color: #d97706; font-size: 13px; text-align: center; }
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+      padding: 4px;
+      width: 100%;
+    }
+    .link-btn:disabled { color: var(--muted); cursor: default; }
+
+    /* PIN inputs */
+    .pin-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .pin-input {
+      width: 48px !important;
+      height: 56px !important;
+      font-size: 24px !important;
+      text-align: center;
+      padding: 0 !important;
+      border-radius: 10px;
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-6px); }
+      40%      { transform: translateX(6px); }
+      60%      { transform: translateX(-4px); }
+      80%      { transform: translateX(4px); }
+    }
+    .shake { animation: shake 0.35s ease; }
+
+    /* ── Dashboard ── */
+    #dashboard-root {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      max-width: 430px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    /* Header */
+    .dash-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg2);
+      border-bottom: 1px solid #1e3045;
+      flex-shrink: 0;
+    }
+    .dash-header .brand .logo { font-size: 16px; font-weight: 700; color: var(--bright); }
+    .dash-header .brand .sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .dash-header .right-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .mic-btn {
+      background: var(--bg3);
+      border: none;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .hey-user { font-size: 13px; color: var(--muted); }
+    .signout-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    /* Stats strip */
+    .stats-strip {
+      display: flex;
+      gap: 10px;
+      padding: 12px 16px;
+      overflow-x: auto;
+      background: var(--bg);
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    .stats-strip::-webkit-scrollbar { display: none; }
+    .stat-card {
+      background: var(--bg2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      min-width: 110px;
+      flex-shrink: 0;
+      cursor: pointer;
+      border: 1px solid #1e3045;
+      transition: border-color 0.2s;
+    }
+    .stat-card:active { border-color: var(--accent); }
+    .stat-card .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .stat-value { font-size: 20px; font-weight: 700; color: var(--text); }
+    .stat-card.owner-only { background: var(--bg3); cursor: default; }
+    .stat-card.owner-only .stat-value { color: var(--muted); font-size: 13px; font-weight: 400; }
+
+    /* Chat area */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 14px;
+    }
+    .chat-bubble-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .chat-bubble-row.user-row { flex-direction: row-reverse; }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .avatar.ai  { background: var(--accent); color: var(--text); }
+    .avatar.usr { background: #1e3045; color: var(--text); font-size: 12px; }
+    .bubble {
+      max-width: calc(100% - 48px);
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .bubble.ai-bubble {
+      background: var(--bg3);
+      border-left: 2px solid var(--accent);
+      border-radius: 2px 14px 14px 14px;
+    }
+    .bubble.user-bubble {
+      background: var(--accent);
+      border-radius: 14px 2px 14px 14px;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .typing-dots { display: flex; gap: 4px; padding: 10px 14px; }
+    .typing-dots span {
+      width: 6px; height: 6px;
+      background: var(--muted);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%,60%,100% { transform: translateY(0); }
+      30%          { transform: translateY(-6px); }
+    }
+
+    /* Quick reply bar */
+    .quick-bar {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      overflow-x: auto;
+      background: var(--bg);
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    .quick-bar::-webkit-scrollbar { display: none; }
+    .pill {
+      background: var(--bg2);
+      border: 1px solid #1e3045;
+      border-radius: 20px;
+      padding: 7px 14px;
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color 0.2s;
+    }
+    .pill:active { border-color: var(--accent); }
+
+    /* Input bar */
+    .input-bar {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      padding: 10px 16px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+      background: var(--bg2);
+      border-top: 1px solid #1e3045;
+      flex-shrink: 0;
+    }
+    #chat-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid #1e3045;
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 16px;
+      padding: 10px 14px;
+      resize: none;
+      outline: none;
+      line-height: 1.4;
+      max-height: 100px;
+      overflow-y: auto;
+      font-family: inherit;
+    }
+    #chat-input:focus { border-color: var(--accent); }
+    .send-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      color: var(--text);
+    }
+    .send-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+    /* Voice overlay */
+    #voice-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(13,27,42,0.95);
+      z-index: 100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+    }
+    #voice-overlay.active { display: flex; }
+    .pulse-rings {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      animation: pulse-ring 2s ease-out infinite;
+      opacity: 0;
+    }
+    .ring:nth-child(1) { width: 70px;  height: 70px;  animation-delay: 0s; }
+    .ring:nth-child(2) { width: 100px; height: 100px; animation-delay: 0.5s; }
+    .ring:nth-child(3) { width: 130px; height: 130px; animation-delay: 1s; }
+    @keyframes pulse-ring {
+      0%   { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(1.1); opacity: 0; }
+    }
+    .mic-icon-large {
+      width: 44px;
+      height: 44px;
+      color: var(--bright);
+      z-index: 1;
+    }
+    #voice-transcript {
+      color: var(--muted);
+      font-size: 15px;
+      text-align: center;
+      max-width: 300px;
+      line-height: 1.5;
+      min-height: 44px;
+    }
+    .cancel-voice-btn {
+      background: var(--bg2);
+      border: 1px solid #1e3045;
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 15px;
+      padding: 10px 28px;
+      cursor: pointer;
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg3);
+      border: 1px solid #1e3045;
+      color: var(--text);
+      font-size: 13px;
+      padding: 10px 18px;
+      border-radius: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      white-space: nowrap;
+      z-index: 200;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ AUTH ROOT ══════════ -->
+<div id="auth-root">
+  <!-- Screen 1: Phone entry (shown by default) -->
+  <div id="screen-phone" class="auth-card">
+    <div class="wordmark">
+      <div class="logo">OctoEmployee</div>
+      <div class="client-name" id="s1-client-name"></div>
+    </div>
+    <h2>Enter your phone number</h2>
+    <p class="subtitle">We will send a 6-digit PIN to your phone</p>
+    <input type="tel" id="phone-input" placeholder="(555) 555-5555" autocomplete="tel" />
+    <button class="btn-primary" id="send-pin-btn">Send PIN</button>
+    <p id="phone-msg" style="display:none"></p>
+  </div>
+
+  <!-- Screen 2: PIN entry (hidden by default) -->
+  <div id="screen-pin" class="auth-card" style="display:none">
+    <div class="wordmark">
+      <div class="logo">OctoEmployee</div>
+    </div>
+    <h2>Check your phone</h2>
+    <p class="subtitle" id="pin-subtitle">Enter the PIN sent to your phone</p>
+    <div class="pin-row" id="pin-row">
+      <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+      <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+      <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+      <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+      <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+      <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+    </div>
+    <p id="pin-msg" style="display:none"></p>
+    <button class="link-btn" id="resend-btn" style="display:none">Resend PIN</button>
+    <button class="link-btn" id="back-btn">← Back</button>
+  </div>
+</div>
+
+<!-- ══════════ DASHBOARD ROOT ══════════ -->
+<div id="dashboard-root">
+
+  <!-- Header -->
+  <header class="dash-header">
+    <div class="brand">
+      <div class="logo">OctoEmployee</div>
+      <div class="sub" id="header-client-name"></div>
+    </div>
+    <div class="right-group">
+      <button class="mic-btn" id="mic-btn" title="Voice input">🎙️</button>
+      <span class="hey-user" id="hey-user"></span>
+      <button class="signout-btn" id="signout-btn">Sign out</button>
+    </div>
+  </header>
+
+  <!-- Stats strip -->
+  <div class="stats-strip" id="stats-strip">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- Chat area -->
+  <div class="chat-area" id="chat-area"></div>
+
+  <!-- Quick reply bar -->
+  <div class="quick-bar" id="quick-bar"></div>
+
+  <!-- Input bar -->
+  <div class="input-bar">
+    <textarea id="chat-input" rows="1" placeholder="Ask anything…"></textarea>
+    <button class="send-btn" id="send-btn" aria-label="Send">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Voice overlay -->
+<div id="voice-overlay">
+  <div class="pulse-rings">
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <svg class="mic-icon-large" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93H2c0 4.97 3.53 9.11 8 9.88V21h4v-3.19c4.47-.77 8-4.91 8-9.81h-2c0 4.08-3.06 7.44-7 7.93V15.93z"/>
+    </svg>
+  </div>
+  <p id="voice-transcript">Listening…</p>
+  <button class="cancel-voice-btn" id="cancel-voice-btn">Cancel</button>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  // ── Client config ────────────────────────────────
+  const CLIENT_NAME = 'ProSwing Athletic Training';
+  const CLIENT_ID   = 'proswing-001';
+
+  // ── State ────────────────────────────────────────
+  let currentUser = null;
+  let storedPhone = '';
+  let pinFailures = 0;
+  let resendTimer = null;
+
+  // ── Boot ─────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('s1-client-name').textContent = CLIENT_NAME;
+    document.getElementById('header-client-name').textContent = CLIENT_NAME;
+
+    try {
+      const res = await fetch('/api/auth/status');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.valid) {
+          currentUser = data.user;
+          renderDashboard();
+          return;
+        }
+      }
+    } catch (e) { /* fall through */ }
+    renderAuth('phone');
+  });
+
+  // ── Auth rendering ───────────────────────────────
+  function renderAuth(screen) {
+    document.getElementById('auth-root').style.display = 'flex';
+    document.getElementById('dashboard-root').style.display = 'none';
+    document.getElementById('screen-phone').style.display = screen === 'phone' ? 'flex' : 'none';
+    document.getElementById('screen-pin').style.display   = screen === 'pin'   ? 'flex' : 'none';
+  }
+
+  // Screen 1 — phone input formatting
+  const phoneInput = document.getElementById('phone-input');
+  phoneInput.addEventListener('input', () => {
+    const digits = phoneInput.value.replace(/\D/g, '').slice(0, 10);
+    let formatted = '';
+    if (digits.length > 0) formatted = '(' + digits.slice(0, 3);
+    if (digits.length >= 4) formatted += ') ' + digits.slice(3, 6);
+    if (digits.length >= 7) formatted += '-' + digits.slice(6, 10);
+    phoneInput.value = formatted;
+  });
+
+  document.getElementById('send-pin-btn').addEventListener('click', sendPin);
+  phoneInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendPin(); });
+
+  async function sendPin() {
+    const btn = document.getElementById('send-pin-btn');
+    const msgEl = document.getElementById('phone-msg');
+    msgEl.style.display = 'none';
+
+    const raw = phoneInput.value.replace(/\D/g, '');
+    if (raw.length < 10) {
+      showMsg(msgEl, 'error', 'Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+      const res = await fetch('/api/auth/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: raw })
+      });
+      const data = await res.json();
+
+      if (res.status === 429) {
+        showMsg(msgEl, 'warn', 'Too many requests. Try again in 1 hour.');
+        btn.disabled = false;
+        btn.textContent = 'Send PIN';
+        return;
+      }
+      if (!res.ok) {
+        showMsg(msgEl, 'error', data.error || 'Something went wrong. Try again.');
+        btn.disabled = false;
+        btn.textContent = 'Send PIN';
+        return;
+      }
+
+      storedPhone = raw;
+      pinFailures = 0;
+      document.getElementById('pin-subtitle').textContent =
+        'Enter the PIN sent to ***-***-' + raw.slice(-4);
+      renderAuth('pin');
+      clearPinInputs();
+      getPinInputs()[0].focus();
+      startResendTimer(30);
+    } catch (e) {
+      showMsg(msgEl, 'error', 'Something went wrong. Try again.');
+      btn.disabled = false;
+      btn.textContent = 'Send PIN';
+    }
+  }
+
+  // Screen 2 — PIN inputs
+  function getPinInputs() {
+    return Array.from(document.querySelectorAll('.pin-input'));
+  }
+  function clearPinInputs() {
+    getPinInputs().forEach(i => { i.value = ''; i.classList.remove('red-border'); });
+  }
+  function getPinValue() {
+    return getPinInputs().map(i => i.value).join('');
+  }
+
+  getPinInputs().forEach((input, idx, inputs) => {
+    input.addEventListener('input', () => {
+      const v = input.value.replace(/\D/g, '');
+      input.value = v.slice(-1);
+      if (input.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+      if (getPinValue().length === 6) verifyPin();
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !input.value && idx > 0) inputs[idx - 1].focus();
+    });
+    input.addEventListener('paste', e => {
+      e.preventDefault();
+      const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+      inputs.forEach((inp, i) => { inp.value = pasted[i] || ''; });
+      if (pasted.length >= 6) verifyPin();
+      else inputs[Math.min(pasted.length, 5)].focus();
+    });
+  });
+
+  async function verifyPin() {
+    const pin = getPinValue();
+    if (pin.length < 6) return;
+    const msgEl = document.getElementById('pin-msg');
+    msgEl.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: storedPhone, pin })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        currentUser = data.user;
+        renderDashboard();
+        return;
+      }
+
+      pinFailures++;
+      const pinRow = document.getElementById('pin-row');
+      getPinInputs().forEach(i => i.classList.add('red-border'));
+      pinRow.classList.add('shake');
+      setTimeout(() => pinRow.classList.remove('shake'), 400);
+      clearPinInputs();
+      getPinInputs()[0].focus();
+
+      const attemptsLeft = data.attemptsLeft ?? (5 - pinFailures);
+      if (pinFailures >= 2) {
+        showMsg(msgEl, 'warn', attemptsLeft + ' attempt' + (attemptsLeft === 1 ? '' : 's') + ' remaining');
+      } else {
+        showMsg(msgEl, 'error', data.error || 'Incorrect PIN. Please try again.');
+      }
+    } catch (e) {
+      showMsg(document.getElementById('pin-msg'), 'error', 'Something went wrong. Try again.');
+    }
+  }
+
+  document.getElementById('back-btn').addEventListener('click', () => {
+    clearPinInputs();
+    pinFailures = 0;
+    clearTimeout(resendTimer);
+    document.getElementById('resend-btn').style.display = 'none';
+    renderAuth('phone');
+  });
+
+  function startResendTimer(seconds) {
+    const btn = document.getElementById('resend-btn');
+    btn.style.display = 'none';
+    let remaining = seconds;
+    const tick = () => {
+      if (remaining <= 0) {
+        btn.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Resend PIN';
+        return;
+      }
+      remaining--;
+      resendTimer = setTimeout(tick, 1000);
+    };
+    resendTimer = setTimeout(tick, 1000);
+  }
+
+  document.getElementById('resend-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('resend-btn');
+    btn.disabled = true;
+    await sendPinForPhone(storedPhone);
+    let countdown = 60;
+    const tick = () => {
+      if (countdown <= 0) { btn.disabled = false; btn.textContent = 'Resend PIN'; return; }
+      btn.textContent = 'Resend in ' + countdown + 's';
+      countdown--;
+      setTimeout(tick, 1000);
+    };
+    tick();
+  });
+
+  async function sendPinForPhone(raw) {
+    try {
+      await fetch('/api/auth/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: raw })
+      });
+    } catch (e) { /* silent */ }
+  }
+
+  function showMsg(el, type, text) {
+    el.className = type === 'error' ? 'msg-error' : 'msg-warn';
+    el.textContent = text;
+    el.style.display = 'block';
+  }
+
+  // ── Dashboard ────────────────────────────────────
+  function renderDashboard() {
+    document.getElementById('auth-root').style.display = 'none';
+    const dash = document.getElementById('dashboard-root');
+    dash.style.display = 'flex';
+
+    document.getElementById('hey-user').textContent = 'Hey ' + currentUser.name;
+
+    buildStatsStrip();
+    buildQuickBar();
+    appendAiMessage('👋 Hi ' + currentUser.name + '! I\'m your AI business coach for ' + CLIENT_NAME + '. What would you like to know today?');
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    }
+  }
+
+  // Stats strip
+  const STAT_CARDS = [
+    { id: 'mrr',        label: 'MRR',        value: '—', question: 'What is our current monthly recurring revenue and how does it compare to last month?', requiresRevenue: true },
+    { id: 'at-risk',    label: 'At-risk',     value: '—', question: 'Who are our at-risk members right now and what should we do about them?' },
+    { id: 'recovered',  label: 'Recovered',   value: '—', question: 'How many members have we recovered this month and what worked?' },
+    { id: 'new-members',label: 'New Members', value: '—', question: 'How many new members joined this month and where did they come from?' },
+    { id: 'leads',      label: 'Leads',       value: '—', question: 'What is our current lead pipeline and who needs follow-up?' }
+  ];
+
+  function buildStatsStrip() {
+    const strip = document.getElementById('stats-strip');
+    strip.innerHTML = '';
+    STAT_CARDS.forEach(card => {
+      const el = document.createElement('div');
+      if (card.requiresRevenue && !currentUser.permissions.canViewRevenue) {
+        el.className = 'stat-card owner-only';
+        el.innerHTML = '<div class="stat-label">' + card.label + '</div><div class="stat-value">Owner only</div>';
+      } else {
+        el.className = 'stat-card';
+        el.innerHTML = '<div class="stat-label">' + card.label + '</div><div class="stat-value" id="stat-' + card.id + '">' + card.value + '</div>';
+        el.addEventListener('click', () => sendMessage(card.question));
+      }
+      strip.appendChild(el);
+    });
+  }
+
+  // Quick bar
+  const PILLS = [
+    { label: 'At-risk members',  text: 'Who are our at-risk members right now?', requiresRevenue: false, requiresApproval: false },
+    { label: 'Win-back message', text: 'Draft a win-back message for lapsed members.', requiresRevenue: false, requiresApproval: true },
+    { label: 'Upsell today',     text: 'Which members should we upsell today and what offer?', requiresRevenue: true, requiresApproval: false },
+    { label: 'Trial problem',    text: 'Which trial members are struggling and need attention?', requiresRevenue: false, requiresApproval: false },
+    { label: '90-day forecast',  text: 'Give me a 90-day revenue and churn forecast.', requiresRevenue: true, requiresApproval: false },
+    { label: 'Cancel save',      text: 'How should I handle a member who wants to cancel?', requiresRevenue: false, requiresApproval: true }
+  ];
+
+  function buildQuickBar() {
+    const bar = document.getElementById('quick-bar');
+    bar.innerHTML = '';
+    PILLS.forEach(pill => {
+      if (pill.requiresRevenue && !currentUser.permissions.canViewRevenue) return;
+      const el = document.createElement('button');
+      el.className = 'pill';
+      el.textContent = pill.label;
+      if (pill.requiresApproval && !currentUser.permissions.canApproveActions) {
+        el.style.opacity = '0.4';
+        el.style.pointerEvents = 'none';
+      } else {
+        el.addEventListener('click', () => sendMessage(pill.text));
+      }
+      bar.appendChild(el);
+    });
+  }
+
+  // Sign out
+  document.getElementById('signout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    location.reload();
+  });
+
+  // ── Chat ─────────────────────────────────────────
+  function appendAiMessage(text) {
+    const area = document.getElementById('chat-area');
+    const row = document.createElement('div');
+    row.className = 'chat-bubble-row';
+    row.innerHTML = `
+      <div class="avatar ai">🤖</div>
+      <div class="bubble ai-bubble">${escHtml(text)}</div>`;
+    area.appendChild(row);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function appendUserMessage(text) {
+    const area = document.getElementById('chat-area');
+    const initials = (currentUser.name || 'U').slice(0, 2).toUpperCase();
+    const row = document.createElement('div');
+    row.className = 'chat-bubble-row user-row';
+    row.innerHTML = `
+      <div class="bubble user-bubble">${escHtml(text)}</div>
+      <div class="avatar usr">${escHtml(initials)}</div>`;
+    area.appendChild(row);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function showTyping() {
+    const area = document.getElementById('chat-area');
+    const row = document.createElement('div');
+    row.className = 'chat-bubble-row';
+    row.id = 'typing-row';
+    row.innerHTML = `
+      <div class="avatar ai">🤖</div>
+      <div class="typing-dots"><span></span><span></span><span></span></div>`;
+    area.appendChild(row);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function hideTyping() {
+    const el = document.getElementById('typing-row');
+    if (el) el.remove();
+  }
+
+  function appendErrorMessage(text) {
+    const area = document.getElementById('chat-area');
+    const row = document.createElement('div');
+    row.className = 'chat-bubble-row';
+    row.innerHTML = `<div class="bubble ai-bubble" style="color:#e05c5c">${escHtml(text)}</div>`;
+    area.appendChild(row);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  async function sendMessage(text) {
+    const msg = text.trim();
+    if (!msg) return;
+    appendUserMessage(msg);
+    showTyping();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: msg, clientId: CLIENT_ID })
+      });
+      const data = await res.json();
+      hideTyping();
+      if (!res.ok) {
+        appendErrorMessage(data.error || 'Something went wrong. Try again.');
+      } else {
+        appendAiMessage(data.answer);
+      }
+    } catch (e) {
+      hideTyping();
+      appendErrorMessage('Something went wrong. Try again.');
+    }
+  }
+
+  // Input bar
+  const chatInput = document.getElementById('chat-input');
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const msg = chatInput.value.trim();
+      if (msg) { sendMessage(msg); chatInput.value = ''; chatInput.style.height = 'auto'; }
+    }
+  });
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+  });
+  document.getElementById('send-btn').addEventListener('click', () => {
+    const msg = chatInput.value.trim();
+    if (msg) { sendMessage(msg); chatInput.value = ''; chatInput.style.height = 'auto'; }
+  });
+
+  // ── Voice input ───────────────────────────────────
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+
+  document.getElementById('mic-btn').addEventListener('click', () => {
+    if (!SpeechRecognition) { showToast('Voice input not supported in this browser'); return; }
+    startVoice();
+  });
+
+  document.getElementById('cancel-voice-btn').addEventListener('click', () => {
+    if (recognition) recognition.abort();
+    hideVoiceOverlay();
+  });
+
+  function startVoice() {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    const overlay = document.getElementById('voice-overlay');
+    const transcript = document.getElementById('voice-transcript');
+    overlay.classList.add('active');
+    transcript.textContent = 'Listening…';
+
+    recognition.onresult = e => {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      transcript.textContent = final || interim || 'Listening…';
+      if (final) {
+        hideVoiceOverlay();
+        sendMessage(final.trim());
+      }
+    };
+    recognition.onerror = () => hideVoiceOverlay();
+    recognition.onend   = () => hideVoiceOverlay();
+    recognition.start();
+  }
+
+  function hideVoiceOverlay() {
+    document.getElementById('voice-overlay').classList.remove('active');
+    document.getElementById('voice-transcript').textContent = 'Listening…';
+  }
+
+  // ── Toast ─────────────────────────────────────────
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // ── Util ──────────────────────────────────────────
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

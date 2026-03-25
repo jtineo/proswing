@@ -1,0 +1,20 @@
+{
+  "clientId": "proswing-001",
+  "clientName": "ProSwing Baseball",
+  "users": [
+    {
+      "id": "user-001",
+      "name": "Dan Grey",
+      "phone": "+17045550001",
+      "role": "owner",
+      "ghlContactId": "xtuBpmWlbnVgMAkEvMZE",
+      "active": true,
+      "addedDate": "2026-03-23"
+    }
+  ],
+  "roles": {
+    "owner":   { "canViewRevenue": true,  "canViewAllMembers": true,  "canSendMessages": true, "canApproveActions": true  },
+    "manager": { "canViewRevenue": false, "canViewAllMembers": true,  "canSendMessages": true, "canApproveActions": false },
+    "staff":   { "canViewRevenue": false, "canViewAllMembers": false, "canSendMessages": true, "canApproveActions": false }
+  }
+}
