@@ -55,10 +55,10 @@ export default async function handler(req, res) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
   const WINDOW = 60 * 60 * 1000; // 60 minutes
 
-  if (checkRateLimit(phoneRateMap, normalized, 3, WINDOW)) {
+  if (checkRateLimit(phoneRateMap, normalized, 20, WINDOW)) {
     return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
-  if (checkRateLimit(ipRateMap, ip, 10, WINDOW)) {
+  if (checkRateLimit(ipRateMap, ip, 50, WINDOW)) {
     return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
 
