@@ -45,22 +45,48 @@ async function ghlUpdateContact(contactId, fields) {
   });
 }
 
-async function mbGet(path, params) {
-  const mbApiKey = process.env.MINDBODY_API_KEY;
-  const mbSiteId = process.env.MINDBODY_SITE_ID;
+async function mbGetStaffToken() {
+  const mbApiKey  = process.env.MINDBODY_API_KEY;
+  const mbSiteId  = process.env.MINDBODY_SITE_ID;
+  const mbUser    = process.env.MINDBODY_STAFF_USERNAME;
+  const mbPass    = process.env.MINDBODY_STAFF_PASSWORD;
   if (!mbApiKey) throw new Error('MINDBODY_API_KEY is not set');
   if (!mbSiteId) throw new Error('MINDBODY_SITE_ID is not set');
+  if (!mbUser)   throw new Error('MINDBODY_STAFF_USERNAME is not set');
+  if (!mbPass)   throw new Error('MINDBODY_STAFF_PASSWORD is not set');
+
+  const res = await fetch(`${MB_BASE}/usertoken/issue`, {
+    method: 'POST',
+    headers: {
+      'Api-Key': mbApiKey,
+      'SiteId':  mbSiteId,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ Username: mbUser, Password: mbPass })
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Mindbody auth failed: ${res.status} ${body}`);
+  }
+  const data = await res.json();
+  return data.AccessToken;
+}
+
+async function mbGet(path, params, accessToken) {
+  const mbApiKey = process.env.MINDBODY_API_KEY;
+  const mbSiteId = process.env.MINDBODY_SITE_ID;
 
   const url = new URL(MB_BASE + path);
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      'Api-Key': mbApiKey,
-      'SiteId': mbSiteId,
-      'Content-Type': 'application/json'
-    }
-  });
+  const headers = {
+    'Api-Key': mbApiKey,
+    'SiteId':  mbSiteId,
+    'Content-Type': 'application/json'
+  };
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) throw new Error(`Mindbody ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -156,9 +182,14 @@ export default async function handler(req, res) {
   }
 
   try {
+    // ── Authenticate with Mindbody ────────────────────
+    const accessToken = await mbGetStaffToken();
+    console.log('[sync] Mindbody staff token acquired');
+
     // ── Pull members ─────────────────────────────────
-    const membersData = await mbGet('/client/clients', { limit: 200, offset: 0 });
+    const membersData = await mbGet('/client/clients', { limit: 200, offset: 0 }, accessToken);
     const members = membersData.Clients || [];
+    console.log('[sync] Members pulled:', members.length);
 
     // Monthly counter accumulators
     let membersRecovered  = 0;
@@ -181,7 +212,7 @@ export default async function handler(req, res) {
           clientId: member.Id,
           startDate: ninetyDaysAgo,
           limit: 200
-        });
+        }, accessToken);
         visits = visitData.Visits || [];
       } catch (e) {
         syncRecord.errors.push(`Visit fetch failed for ${member.Id}: ${e.message}`);
