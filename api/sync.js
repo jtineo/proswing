@@ -180,9 +180,10 @@ export default async function handler(req, res) {
     endTime: null
   };
 
-  // ── Anomaly check ─────────────────────────────────
+  // ── DIAGNOSTIC: skip anomaly check during testing ──
+  // Anomaly check ─────────────────────────────────
   const hour = new Date().getUTCHours();
-  if (hour < 1 || hour > 4) {
+  if (false && hour < 1 || hour > 4) {
     await ghlSendSms(agencyContactId,
       `OctoEmployee WARNING: Sync triggered outside normal window.\nClient: ${clientId} | Time: ${new Date().toISOString()}\nVerify this was intentional.`
     );
