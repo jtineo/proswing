@@ -88,7 +88,7 @@ export default async function handler(req, res) {
   });
 
   // Send via GHL SMS — NEVER log pin or phone
-  await fetch(`${GHL_BASE}/conversations/messages`, {
+  const ghlRes = await fetch(`${GHL_BASE}/conversations/messages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${ghlKey}`,
@@ -100,6 +100,10 @@ export default async function handler(req, res) {
       message:   `Your OctoEmployee PIN: ${pin}\nExpires in 10 minutes.\nDo not share this code.`
     })
   });
+
+  // Temporary diagnostic logging — remove once SMS is confirmed working
+  const ghlBody = await ghlRes.text();
+  console.log('[GHL SMS] status:', ghlRes.status, '| contactId:', user.ghlContactId, '| response:', ghlBody);
 
   return res.status(200).json(successResponse);
 }
