@@ -78,15 +78,20 @@ export default async function handler(req, res) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY is not set');
 
-  const client = new Anthropic({ apiKey: anthropicKey });
+  try {
+    const client = new Anthropic({ apiKey: anthropicKey });
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 600,
-    system: `You are the AI business coach for ${CLIENT_NAME}. Answer using real member data when provided in context. Keep responses under 120 words for mobile readability. End every response with one clear recommended action. Use specific member names and dollar amounts when available. Never use business jargon.`,
-    messages: [{ role: 'user', content: question }]
-  });
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      system: `You are the AI business coach for ${CLIENT_NAME}. Answer using real member data when provided in context. Keep responses under 120 words for mobile readability. End every response with one clear recommended action. Use specific member names and dollar amounts when available. Never use business jargon.`,
+      messages: [{ role: 'user', content: question }]
+    });
 
-  const answer = message.content?.[0]?.text || 'No response received.';
-  return res.status(200).json({ answer });
+    const answer = message.content?.[0]?.text || 'No response received.';
+    return res.status(200).json({ answer });
+  } catch (e) {
+    console.error('[chat] Claude API error:', e.message, e.status ?? '');
+    return res.status(500).json({ error: e.message });
+  }
 }
