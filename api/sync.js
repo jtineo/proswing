@@ -5,6 +5,13 @@ const GHL_BASE = 'https://rest.gohighlevel.com/v1';
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(id));
+}
+
 function verifyAdminToken(req) {
   const adminToken = process.env.ADMIN_TOKEN;
   if (!adminToken) throw new Error('ADMIN_TOKEN is not set');
@@ -23,7 +30,7 @@ function verifyAdminToken(req) {
 
 async function ghlSendSms(contactId, message) {
   const ghlKey = process.env.GHL_API_KEY;
-  await fetch(`${GHL_BASE}/conversations/messages`, {
+  await fetchWithTimeout(`${GHL_BASE}/conversations/messages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${ghlKey}`,
@@ -35,7 +42,7 @@ async function ghlSendSms(contactId, message) {
 
 async function ghlUpdateContact(contactId, fields) {
   const ghlKey = process.env.GHL_API_KEY;
-  await fetch(`${GHL_BASE}/contacts/${contactId}`, {
+  await fetchWithTimeout(`${GHL_BASE}/contacts/${contactId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${ghlKey}`,
@@ -55,7 +62,7 @@ async function mbGetStaffToken() {
   if (!mbUser)   throw new Error('MINDBODY_STAFF_USERNAME is not set');
   if (!mbPass)   throw new Error('MINDBODY_STAFF_PASSWORD is not set');
 
-  const res = await fetch(`${MB_BASE}/usertoken/issue`, {
+  const res = await fetchWithTimeout(`${MB_BASE}/usertoken/issue`, {
     method: 'POST',
     headers: {
       'Api-Key': mbApiKey,
@@ -86,7 +93,7 @@ async function mbGet(path, params, accessToken) {
   };
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-  const res = await fetch(url.toString(), { headers });
+  const res = await fetchWithTimeout(url.toString(), { headers });
   if (!res.ok) throw new Error(`Mindbody ${path} failed: ${res.status}`);
   return res.json();
 }
