@@ -1,11 +1,11 @@
 {
   "clientId": "proswing-001",
-  "clientName": "ProSwing Baseball",
+  "clientName": "ProSwing Athletic Training",
   "users": [
     {
       "id": "user-001",
       "name": "Dan Grey",
-      "phone": "+17045550001",
+      "phone": "+19145577124",
       "role": "owner",
       "ghlContactId": "xtuBpmWlbnVgMAkEvMZE",
       "active": true,
