@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 
-const MB_BASE = 'https://api.mindbodyonline.com/public/v6';
-const GHL_BASE = 'https://rest.gohighlevel.com/v1';
+const MB_BASE   = 'https://api.mindbodyonline.com/public/v6';
+const GHL_BASE  = 'https://rest.gohighlevel.com/v1';
+const GHL_BASE2 = 'https://services.leadconnectorhq.com';
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -50,6 +51,50 @@ async function ghlUpdateContact(contactId, fields) {
     },
     body: JSON.stringify({ customField: fields })
   });
+}
+
+function normalizePhone(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 10) return '+1' + digits;
+  if (digits.length === 11 && digits[0] === '1') return '+' + digits;
+  return null;
+}
+
+async function fetchGhlContactMaps(ghlKey, locationId) {
+  const byEmail = {};
+  const byPhone = {};
+  let startAfterId = null;
+
+  for (let page = 0; page < 25; page++) {
+    if (page > 0) await sleep(200);
+    const url = new URL(`${GHL_BASE2}/contacts/`);
+    url.searchParams.set('locationId', locationId);
+    url.searchParams.set('limit', '100');
+    if (startAfterId) url.searchParams.set('startAfterId', startAfterId);
+
+    const res = await fetchWithTimeout(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${ghlKey}`,
+        'Content-Type':  'application/json',
+        'Version':       '2021-07-28'
+      }
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    const batch = data.contacts || [];
+
+    for (const c of batch) {
+      if (c.email) byEmail[c.email.toLowerCase()] = c.id;
+      const norm = normalizePhone(c.phone);
+      if (norm) byPhone[norm] = c.id;
+    }
+
+    if (batch.length < 100) break;
+    startAfterId = batch[batch.length - 1].id;
+  }
+
+  return { byEmail, byPhone };
 }
 
 async function mbGetStaffToken() {
@@ -162,9 +207,11 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const ghlKey = process.env.GHL_API_KEY;
+  const ghlKey        = process.env.GHL_API_KEY;
+  const ghlLocationId = process.env.GHL_LOCATION_ID;
   const agencyContactId = process.env.AGENCY_OWNER_CONTACT_ID;
-  if (!ghlKey) throw new Error('GHL_API_KEY is not set');
+  if (!ghlKey)          throw new Error('GHL_API_KEY is not set');
+  if (!ghlLocationId)   throw new Error('GHL_LOCATION_ID is not set');
   if (!agencyContactId) throw new Error('AGENCY_OWNER_CONTACT_ID is not set');
 
   const { clientId, lookbackMonths: rawLookback } = req.body || {};
@@ -263,9 +310,15 @@ export default async function handler(req, res) {
     }
     console.log('[sync] Active members fetched:', members.length);
 
-    const membersToProcess = members;
+    // ── Build GHL contact lookup maps (email + phone) ──
+    const { byEmail, byPhone } = await fetchGhlContactMaps(ghlKey, ghlLocationId);
+    console.log('[sync] GHL contact map built');
 
-    for (const member of membersToProcess) {
+    // Cap GHL updates at 50 per run to stay within Vercel 60s limit
+    let ghlUpdatesThisRun = 0;
+    const MAX_GHL_UPDATES = 50;
+
+    for (const member of members) {
       // Map appointments to visit-like objects for risk scoring
       const memberAppts = apptsByClient[String(member.Id)] || [];
       const visits = memberAppts
@@ -279,11 +332,21 @@ export default async function handler(req, res) {
         }));
 
       const risk = computeRiskScore(visits, member, lookbackDays);
-      const ghlContactId = member.ExternalId || null;
 
-      // Monthly counter logic (requires prior segment stored in GHL — simplified to segment transitions)
+      // Find GHL contact by email or phone
+      const email = (member.Email || '').toLowerCase();
+      const phones = [member.MobilePhone, member.HomePhone, member.WorkPhone]
+        .map(normalizePhone).filter(Boolean);
+
+      let ghlContactId = (email && byEmail[email]) || null;
+      if (!ghlContactId) {
+        for (const p of phones) {
+          if (byPhone[p]) { ghlContactId = byPhone[p]; break; }
+        }
+      }
+
+      // Monthly counter logic
       const prevSegment = member.CustomField?.member_segment || 'active';
-
       if (prevSegment === 'at-risk' && risk.segment === 'active') {
         membersRecovered++;
         revenueRecovered += avgMemberValue;
@@ -298,8 +361,8 @@ export default async function handler(req, res) {
       if (risk.segment === 'at-risk') syncRecord.atRiskFound++;
       syncRecord.membersProcessed++;
 
-      // Update GHL contact
-      if (ghlContactId) {
+      // Update GHL contact (capped to stay within Vercel time limit)
+      if (ghlContactId && ghlUpdatesThisRun < MAX_GHL_UPDATES) {
         try {
           await ghlUpdateContact(ghlContactId, {
             risk_score:       risk.score,
@@ -309,6 +372,7 @@ export default async function handler(req, res) {
             package_expiry:   risk.packageExpiry,
             lifetime_value:   risk.lifetimeValue
           });
+          ghlUpdatesThisRun++;
         } catch (e) {
           syncRecord.errors.push(`GHL update failed for ${member.Id}: ${e.message}`);
         }
