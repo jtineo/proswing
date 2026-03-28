@@ -81,6 +81,29 @@ async function mbUpdateClientExternalId(clientId, externalId, accessToken) {
   return res.json();
 }
 
+async function ghlCreateContact(ghlKey, locationId, member) {
+  const phone = member.MobilePhone || member.HomePhone || member.WorkPhone || null;
+  const body = {
+    locationId,
+    firstName: (member.FirstName || '').trim() || 'Unknown',
+    lastName:  (member.LastName  || '').trim() || 'Member',
+  };
+  if (member.Email) body.email = member.Email;
+  if (phone)        body.phone = phone;
+
+  const res = await fetchWithTimeout(`${GHL_BASE}/contacts/`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${ghlKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GHL create contact failed ${res.status}: ${text.substring(0, 100)}`);
+  }
+  const data = await res.json();
+  return data.contact.id;
+}
+
 async function fetchAllGhlContacts(ghlKey) {
   const contacts = [];
   let startAfterId = null;
@@ -115,12 +138,14 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const ghlKey   = process.env.GHL_API_KEY;
-  const mbApiKey = process.env.MINDBODY_API_KEY;
-  const mbSiteId = process.env.MINDBODY_SITE_ID;
-  if (!ghlKey)   throw new Error('GHL_API_KEY is not set');
-  if (!mbApiKey) throw new Error('MINDBODY_API_KEY is not set');
-  if (!mbSiteId) throw new Error('MINDBODY_SITE_ID is not set');
+  const ghlKey        = process.env.GHL_API_KEY;
+  const ghlLocationId = process.env.GHL_LOCATION_ID;
+  const mbApiKey      = process.env.MINDBODY_API_KEY;
+  const mbSiteId      = process.env.MINDBODY_SITE_ID;
+  if (!ghlKey)        throw new Error('GHL_API_KEY is not set');
+  if (!ghlLocationId) throw new Error('GHL_LOCATION_ID is not set');
+  if (!mbApiKey)      throw new Error('MINDBODY_API_KEY is not set');
+  if (!mbSiteId)      throw new Error('MINDBODY_SITE_ID is not set');
 
   const MAX_UPDATES = 40; // stay within Vercel 60s limit — run again if needed
   const lookbackDays = 180;
@@ -180,10 +205,10 @@ export default async function handler(req, res) {
     if (norm) byPhone[norm] = c.id;
   }
 
-  // ── Step 5: Match and link ─────────────────────────────
-  let linked    = 0;
+  // ── Step 5: Match existing or create new GHL contact, then link ──
+  let linked       = 0;
   let alreadyLinked = 0;
-  let unmatched = 0;
+  let created      = 0;
   let updateErrors = 0;
   const errors = [];
 
@@ -194,7 +219,10 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // Try email first, then each phone field
+    // Stop processing once we hit the cap (remaining will be picked up next run)
+    if (linked >= MAX_UPDATES) continue;
+
+    // Try to find existing GHL contact by email or phone
     const email = (member.Email || '').toLowerCase();
     const phones = [member.MobilePhone, member.HomePhone, member.WorkPhone]
       .map(normalizePhone).filter(Boolean);
@@ -207,15 +235,20 @@ export default async function handler(req, res) {
       }
     }
 
-    if (!ghlContactId) {
-      unmatched++;
-      continue;
-    }
-
-    if (linked >= MAX_UPDATES) continue; // reached cap — counted as unmatched for this run
-
     try {
-      await sleep(100);
+      await sleep(150);
+
+      // No existing GHL contact — create one from Mindbody data
+      if (!ghlContactId) {
+        ghlContactId = await ghlCreateContact(ghlKey, ghlLocationId, member);
+        created++;
+        // Add to lookup maps so duplicate MB members don't create duplicate GHL contacts
+        if (member.Email) byEmail[member.Email.toLowerCase()] = ghlContactId;
+        const norm = normalizePhone(member.MobilePhone || member.HomePhone);
+        if (norm) byPhone[norm] = ghlContactId;
+      }
+
+      // Set ExternalId in Mindbody
       await mbUpdateClientExternalId(member.Id, ghlContactId, accessToken);
       linked++;
     } catch (e) {
@@ -224,7 +257,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const remaining = members.filter(m => !m.ExternalId).length - linked - updateErrors - unmatched;
+  const remaining = members.filter(m => !m.ExternalId).length - linked - updateErrors;
 
   return res.status(200).json({
     success: true,
@@ -232,7 +265,7 @@ export default async function handler(req, res) {
     ghlContacts: ghlContacts.length,
     alreadyLinked,
     linked,
-    unmatched,
+    created,
     updateErrors,
     remaining: Math.max(0, remaining),
     errors: errors.slice(0, 5)
