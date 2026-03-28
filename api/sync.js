@@ -239,6 +239,20 @@ export default async function handler(req, res) {
       apptsByClient[cid].push(appt);
     }
 
+    // Quick diagnostic: check first appointment vs first member
+    const firstAppt = allAppts[0] || {};
+    const firstMember = members[0] || {};
+    const apptDiag = {
+      apptCount: allAppts.length,
+      sampleApptClientId: firstAppt.ClientId,
+      sampleApptClientIdType: typeof firstAppt.ClientId,
+      firstMemberId: firstMember.Id,
+      firstMemberIdType: typeof firstMember.Id,
+      firstMemberClientId: firstMember.ClientId,
+      uniqueApptClients: Object.keys(apptsByClient).length,
+      sampleApptKeys: Object.keys(apptsByClient).slice(0, 3),
+    };
+
     // Process up to 50 members per run to stay within Vercel's 60s limit
     const membersToProcess = members.slice(0, 50);
 
@@ -311,7 +325,8 @@ export default async function handler(req, res) {
       success: true,
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
-      errors: syncRecord.errors.slice(0, 5)
+      errors: syncRecord.errors.slice(0, 5),
+      apptDiag
     });
 
   } catch (error) {
