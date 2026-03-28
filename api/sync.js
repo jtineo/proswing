@@ -247,10 +247,7 @@ export default async function handler(req, res) {
       sampleApptClientId: firstAppt.ClientId,
       uniqueApptClients: Object.keys(apptsByClient).length,
       sampleApptKeys: Object.keys(apptsByClient).slice(0, 5),
-      firstMemberKeys: Object.keys(firstMember),
-      firstMemberId: firstMember.Id,
-      firstMemberClientId: firstMember.ClientId,
-      firstMemberUniqueId: firstMember.UniqueId,
+      firstMemberRaw: firstMember,
     };
 
     // Process up to 50 members per run to stay within Vercel's 60s limit
