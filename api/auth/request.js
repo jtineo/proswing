@@ -55,10 +55,10 @@ export default async function handler(req, res) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
   const WINDOW = 60 * 60 * 1000; // 60 minutes
 
-  if (checkRateLimit(phoneRateMap, normalized, 20, WINDOW)) {
+  if (checkRateLimit(phoneRateMap, normalized, 3, WINDOW)) {
     return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
-  if (checkRateLimit(ipRateMap, ip, 50, WINDOW)) {
+  if (checkRateLimit(ipRateMap, ip, 10, WINDOW)) {
     return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
 
@@ -100,10 +100,6 @@ export default async function handler(req, res) {
       message:   `Your OctoEmployee PIN: ${pin}\nExpires in 10 minutes.\nDo not share this code.`
     })
   });
-
-  // Temporary diagnostic logging — remove once SMS is confirmed working
-  const ghlBody = await ghlRes.text();
-  console.log('[GHL SMS] status:', ghlRes.status, '| contactId:', user.ghlContactId, '| response:', ghlBody);
 
   return res.status(200).json(successResponse);
 }

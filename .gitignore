@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# User config contains phone numbers and GHL contact IDs — NEVER commit
+config/users.json
+
 # Dependencies
 node_modules/
 
@@ -16,3 +19,4 @@ Thumbs.db
 # Editor
 .vscode/settings.json
 *.swp
+.vercel

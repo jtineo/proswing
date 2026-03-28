@@ -403,6 +403,66 @@
       cursor: pointer;
     }
 
+    /* Settings panel */
+    .settings-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 6px;
+      line-height: 1;
+    }
+    .settings-btn:hover { color: var(--text); }
+    #settings-panel {
+      display: none;
+      position: fixed;
+      top: 56px;
+      right: 12px;
+      background: var(--bg2);
+      border: 1px solid #1e3045;
+      border-radius: 12px;
+      padding: 16px 20px;
+      z-index: 300;
+      min-width: 220px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    #settings-panel.open { display: block; }
+    .settings-panel-title {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .lookback-toggle {
+      display: flex;
+      gap: 6px;
+    }
+    .lookback-toggle button {
+      background: var(--bg3);
+      border: 1px solid #1e3045;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .lookback-toggle button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
     /* Toast */
     #toast {
       position: fixed;
@@ -474,9 +534,22 @@
     <div class="right-group">
       <button class="mic-btn" id="mic-btn" title="Voice input">🎙️</button>
       <span class="hey-user" id="hey-user"></span>
+      <button class="settings-btn" id="settings-btn" title="Settings" style="display:none">⚙️</button>
       <button class="signout-btn" id="signout-btn">Sign out</button>
     </div>
   </header>
+
+  <!-- Settings panel (owner-only) -->
+  <div id="settings-panel">
+    <div class="settings-panel-title">Settings</div>
+    <div class="settings-row">
+      <span>Visit lookback</span>
+      <div class="lookback-toggle">
+        <button id="lookback-6" class="active">6 mo</button>
+        <button id="lookback-12">12 mo</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Stats strip -->
   <div class="stats-strip" id="stats-strip">
@@ -751,6 +824,7 @@
 
     buildStatsStrip();
     buildQuickBar();
+    initSettings();
     appendAiMessage('👋 Hi ' + currentUser.name + '! I\'m your AI business coach for ' + CLIENT_NAME + '. What would you like to know today?');
 
     if ('serviceWorker' in navigator) {
@@ -817,6 +891,35 @@
     await fetch('/api/auth/logout', { method: 'POST' });
     location.reload();
   });
+
+  // ── Settings (owner-only) ─────────────────────────
+  function getLookbackMonths() {
+    return parseInt(localStorage.getItem('octo_lookback_months') || '6', 10);
+  }
+
+  function setLookbackMonths(months) {
+    localStorage.setItem('octo_lookback_months', String(months));
+    document.getElementById('lookback-6').classList.toggle('active', months === 6);
+    document.getElementById('lookback-12').classList.toggle('active', months === 12);
+  }
+
+  function initSettings() {
+    if (!currentUser?.permissions?.canApproveActions) return;
+    document.getElementById('settings-btn').style.display = 'inline-block';
+    setLookbackMonths(getLookbackMonths()); // restore saved state
+
+    document.getElementById('settings-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('settings-panel').classList.toggle('open');
+    });
+    document.addEventListener('click', () => {
+      document.getElementById('settings-panel').classList.remove('open');
+    });
+    document.getElementById('settings-panel').addEventListener('click', (e) => e.stopPropagation());
+
+    document.getElementById('lookback-6').addEventListener('click', () => setLookbackMonths(6));
+    document.getElementById('lookback-12').addEventListener('click', () => setLookbackMonths(12));
+  }
 
   // ── Chat ─────────────────────────────────────────
   function appendAiMessage(text) {

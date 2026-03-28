@@ -93,18 +93,19 @@ async function mbGet(path, params, accessToken) {
   };
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-  const res = await fetchWithTimeout(url.toString(), { headers });
+  const timeoutMs = path.includes('clientvisits') ? 4000 : 10000;
+  const res = await fetchWithTimeout(url.toString(), { headers }, timeoutMs);
   if (!res.ok) throw new Error(`Mindbody ${path} failed: ${res.status}`);
   return res.json();
 }
 
-function computeRiskScore(visits, member) {
+function computeRiskScore(visits, member, lookbackDays = 180) {
   const now = Date.now();
-  const ninetyDaysAgo = now - 90 * 86400000;
-  const thirtyDaysAgo = now - 30 * 86400000;
-  const sixtyDaysAgo  = now - 60 * 86400000;
+  const windowStart    = now - lookbackDays * 86400000;
+  const thirtyDaysAgo  = now - 30 * 86400000;
+  const sixtyDaysAgo   = now - 60 * 86400000;
 
-  const recentVisits = visits.filter(v => new Date(v.StartDateTime).getTime() > ninetyDaysAgo);
+  const recentVisits = visits.filter(v => new Date(v.StartDateTime).getTime() > windowStart);
 
   const lastVisit = recentVisits.reduce((latest, v) => {
     const t = new Date(v.StartDateTime).getTime();
@@ -167,8 +168,10 @@ export default async function handler(req, res) {
   if (!ghlKey) throw new Error('GHL_API_KEY is not set');
   if (!agencyContactId) throw new Error('AGENCY_OWNER_CONTACT_ID is not set');
 
-  const { clientId } = req.body || {};
+  const { clientId, lookbackMonths: rawLookback } = req.body || {};
   if (!clientId) return res.status(400).json({ error: 'clientId is required' });
+  const lookbackMonths = rawLookback === 12 ? 12 : 6; // only 6 or 12 accepted, default 6
+  const lookbackDays   = lookbackMonths * 30;
 
   const syncRecord = {
     clientId,
@@ -180,10 +183,9 @@ export default async function handler(req, res) {
     endTime: null
   };
 
-  // ── DIAGNOSTIC: skip anomaly check during testing ──
   // Anomaly check ─────────────────────────────────
   const hour = new Date().getUTCHours();
-  if (false && hour < 1 || hour > 4) {
+  if (hour < 1 || hour > 4) {
     await ghlSendSms(agencyContactId,
       `OctoEmployee WARNING: Sync triggered outside normal window.\nClient: ${clientId} | Time: ${new Date().toISOString()}\nVerify this was intentional.`
     );
@@ -209,11 +211,14 @@ export default async function handler(req, res) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const avgMemberValue = 150; // fallback default
 
-    for (const member of members) {
-      await sleep(200);
+    // Process up to 50 members per run to stay within Vercel's 60s limit
+    const membersToProcess = members.slice(0, 50);
 
-      // Pull visits for this member (last 90 days)
-      const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+    for (const member of membersToProcess) {
+      await sleep(50);
+
+      // Pull visits for this member (lookback window)
+      const ninetyDaysAgo = new Date(Date.now() - lookbackDays * 86400000).toISOString().split('T')[0];
       let visits = [];
       try {
         const visitData = await mbGet('/client/clientvisits', {
@@ -226,7 +231,7 @@ export default async function handler(req, res) {
         syncRecord.errors.push(`Visit fetch failed for ${member.Id}: ${e.message}`);
       }
 
-      const risk = computeRiskScore(visits, member);
+      const risk = computeRiskScore(visits, member, lookbackDays);
       const ghlContactId = member.ExternalId || null;
 
       // Monthly counter logic (requires prior segment stored in GHL — simplified to segment transitions)
@@ -281,7 +286,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       processed: syncRecord.membersProcessed,
-      atRisk: syncRecord.atRiskFound
+      atRisk: syncRecord.atRiskFound,
+      errors: syncRecord.errors.slice(0, 5)
     });
 
   } catch (error) {
