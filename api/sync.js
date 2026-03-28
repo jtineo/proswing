@@ -314,9 +314,8 @@ export default async function handler(req, res) {
     const { byEmail, byPhone } = await fetchGhlContactMaps(ghlKey, ghlLocationId);
     console.log('[sync] GHL contact map built');
 
-    // Cap GHL updates at 50 per run to stay within Vercel 60s limit
-    let ghlUpdatesThisRun = 0;
-    const MAX_GHL_UPDATES = 50;
+    // Compute risk for all members, collect GHL updates to run in parallel batches
+    const ghlUpdates = []; // { contactId, fields }
 
     for (const member of members) {
       // Map appointments to visit-like objects for risk scoring
@@ -361,22 +360,33 @@ export default async function handler(req, res) {
       if (risk.segment === 'at-risk') syncRecord.atRiskFound++;
       syncRecord.membersProcessed++;
 
-      // Update GHL contact (capped to stay within Vercel time limit)
-      if (ghlContactId && ghlUpdatesThisRun < MAX_GHL_UPDATES) {
-        try {
-          await ghlUpdateContact(ghlContactId, {
+      // Queue GHL update if contact found
+      if (ghlContactId) {
+        ghlUpdates.push({
+          contactId: ghlContactId,
+          fields: {
             risk_score:       risk.score,
             member_segment:   risk.segment,
             days_since_visit: risk.daysSinceVisit,
             last_visit_date:  risk.lastVisitDate,
             package_expiry:   risk.packageExpiry,
             lifetime_value:   risk.lifetimeValue
-          });
-          ghlUpdatesThisRun++;
-        } catch (e) {
-          syncRecord.errors.push(`GHL update failed for ${member.Id}: ${e.message}`);
-        }
+          }
+        });
       }
+    }
+
+    // ── Flush GHL updates in parallel batches of 5 ────
+    const GHL_BATCH = 5;
+    for (let i = 0; i < ghlUpdates.length; i += GHL_BATCH) {
+      const batch = ghlUpdates.slice(i, i + GHL_BATCH);
+      await Promise.all(batch.map(async ({ contactId, fields }) => {
+        try {
+          await ghlUpdateContact(contactId, fields);
+        } catch (e) {
+          syncRecord.errors.push(`GHL update failed for ${contactId}: ${e.message}`);
+        }
+      }));
     }
 
     // ── Update health monitor contact ─────────────────
