@@ -218,12 +218,12 @@ export default async function handler(req, res) {
       await sleep(50);
 
       // Pull visits for this member (lookback window)
-      const ninetyDaysAgo = new Date(Date.now() - lookbackDays * 86400000).toISOString().split('T')[0];
+      const startDateTime = new Date(Date.now() - lookbackDays * 86400000).toISOString();
       let visits = [];
       try {
         const visitData = await mbGet('/client/clientvisits', {
           clientId: member.Id,
-          startDate: ninetyDaysAgo,
+          startDateTime,
           limit: 200
         }, accessToken);
         visits = visitData.Visits || [];
