@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 
-const MB_BASE  = 'https://api.mindbodyonline.com/public/v6';
-const GHL_BASE = 'https://rest.gohighlevel.com/v1';
+const MB_BASE   = 'https://api.mindbodyonline.com/public/v6';
+const GHL_BASE  = 'https://rest.gohighlevel.com/v1';
+const GHL_BASE2 = 'https://services.leadconnectorhq.com';
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -81,6 +82,12 @@ async function mbUpdateClientExternalId(clientId, externalId, accessToken) {
   return res.json();
 }
 
+const GHL_V2_HEADERS = (ghlKey) => ({
+  'Authorization': `Bearer ${ghlKey}`,
+  'Content-Type':  'application/json',
+  'Version':       '2021-07-28'
+});
+
 async function ghlCreateContact(ghlKey, locationId, member) {
   const phone = member.MobilePhone || member.HomePhone || member.WorkPhone || null;
   const body = {
@@ -91,9 +98,9 @@ async function ghlCreateContact(ghlKey, locationId, member) {
   if (member.Email) body.email = member.Email;
   if (phone)        body.phone = phone;
 
-  const res = await fetchWithTimeout(`${GHL_BASE}/contacts/`, {
+  const res = await fetchWithTimeout(`${GHL_BASE2}/contacts/`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${ghlKey}`, 'Content-Type': 'application/json' },
+    headers: GHL_V2_HEADERS(ghlKey),
     body: JSON.stringify(body)
   });
   if (!res.ok) {
@@ -104,19 +111,18 @@ async function ghlCreateContact(ghlKey, locationId, member) {
   return data.contact.id;
 }
 
-async function fetchAllGhlContacts(ghlKey) {
+async function fetchAllGhlContacts(ghlKey, locationId) {
   const contacts = [];
   let startAfterId = null;
 
   for (let page = 0; page < 20; page++) {
     if (page > 0) await sleep(300);
-    const url = new URL(`${GHL_BASE}/contacts/`);
+    const url = new URL(`${GHL_BASE2}/contacts/`);
+    url.searchParams.set('locationId', locationId);
     url.searchParams.set('limit', '100');
-    if (startAfterId) url.searchParams.set('startAfter', startAfterId);
+    if (startAfterId) url.searchParams.set('startAfterId', startAfterId);
 
-    const res = await fetchWithTimeout(url.toString(), {
-      headers: { 'Authorization': `Bearer ${ghlKey}`, 'Content-Type': 'application/json' }
-    });
+    const res = await fetchWithTimeout(url.toString(), { headers: GHL_V2_HEADERS(ghlKey) });
     if (!res.ok) break;
     const data = await res.json();
     const batch = data.contacts || [];
@@ -196,7 +202,7 @@ export default async function handler(req, res) {
   }
 
   // ── Step 4: Fetch all GHL contacts, build lookup maps ─
-  const ghlContacts = await fetchAllGhlContacts(ghlKey);
+  const ghlContacts = await fetchAllGhlContacts(ghlKey, ghlLocationId);
   const byEmail = {};
   const byPhone = {};
   for (const c of ghlContacts) {
