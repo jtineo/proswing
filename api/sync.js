@@ -334,8 +334,7 @@ export default async function handler(req, res) {
       success: true,
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
-      errors: syncRecord.errors.slice(0, 5),
-      _diag: { appts: allAppts.length, uniqueClients: Object.keys(apptsByClient).length, membersFetched: members.length }
+      errors: syncRecord.errors.slice(0, 5)
     });
 
   } catch (error) {
