@@ -93,8 +93,7 @@ async function mbGet(path, params, accessToken) {
   };
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-  const timeoutMs = path.includes('clientvisits') ? 4000 : 10000;
-  const res = await fetchWithTimeout(url.toString(), { headers }, timeoutMs);
+  const res = await fetchWithTimeout(url.toString(), { headers });
   if (!res.ok) throw new Error(`Mindbody ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -211,43 +210,50 @@ export default async function handler(req, res) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const avgMemberValue = 150; // fallback default
 
+    // ── Pull all appointments in bulk, group by ClientId ──
+    const apptStartDate = new Date(Date.now() - lookbackDays * 86400000).toISOString().split('T')[0];
+    const apptEndDate   = new Date().toISOString().split('T')[0];
+    const allAppts = [];
+    let apptOffset = 0;
+    for (let page = 0; page < 15; page++) {
+      if (page > 0) await sleep(300);
+      const batch = await mbGet('/appointment/staffappointments', {
+        startDate: apptStartDate,
+        endDate:   apptEndDate,
+        limit:     200,
+        offset:    apptOffset
+      }, accessToken);
+      const appts = batch.Appointments || [];
+      allAppts.push(...appts);
+      if (appts.length < 200) break;
+      apptOffset += 200;
+    }
+    console.log('[sync] Appointments pulled:', allAppts.length);
+
+    // Group by ClientId
+    const apptsByClient = {};
+    for (const appt of allAppts) {
+      const cid = String(appt.ClientId || '');
+      if (!cid) continue;
+      if (!apptsByClient[cid]) apptsByClient[cid] = [];
+      apptsByClient[cid].push(appt);
+    }
+
     // Process up to 50 members per run to stay within Vercel's 60s limit
     const membersToProcess = members.slice(0, 50);
-    let visitDiag = null; // capture first member's raw visit response for diagnosis
 
     for (const member of membersToProcess) {
-      await sleep(50);
-
-      // Pull visits for this member (lookback window)
-      const startDateTime = new Date(Date.now() - lookbackDays * 86400000).toISOString();
-      let visits = [];
-      try {
-        const visitData = await mbGet('/client/clientvisits', {
-          clientId: member.Id,
-          startDateTime,
-          limit: 200
-        }, accessToken);
-        visits = visitData.Visits || [];
-        if (!visitDiag) {
-          // Check appointments endpoint — athletic facilities often use appointments not class visits
-          const now = new Date().toISOString();
-          const sixMonthsAgo = new Date(Date.now() - 180 * 86400000).toISOString();
-          const apptData = await mbGet('/appointment/staffappointments', {
-            startDate: sixMonthsAgo,
-            endDate: now,
-            limit: 5
-          }, accessToken).catch(e => ({ _error: e.message }));
-          visitDiag = {
-            memberId: member.Id,
-            classVisitsTotal: visitData.PaginationResponse?.TotalResults ?? 0,
-            appointmentKeys: apptData._error ? `error: ${apptData._error}` : Object.keys(apptData),
-            appointmentTotal: apptData.Appointments?.length ?? apptData._error ?? 'no Appointments key',
-            appointmentResponseKeys: apptData._error ? [] : Object.keys(apptData)
-          };
-        }
-      } catch (e) {
-        syncRecord.errors.push(`Visit fetch failed for ${member.Id}: ${e.message}`);
-      }
+      // Map appointments to visit-like objects for risk scoring
+      const memberAppts = apptsByClient[String(member.Id)] || [];
+      const visits = memberAppts
+        .filter(a =>
+          new Date(a.StartDateTime).getTime() < Date.now() &&
+          a.Status !== 'Cancelled' && a.Status !== 'LateCancelled'
+        )
+        .map(a => ({
+          StartDateTime: a.StartDateTime,
+          SignedIn: a.Status !== 'NoShow'
+        }));
 
       const risk = computeRiskScore(visits, member, lookbackDays);
       const ghlContactId = member.ExternalId || null;
@@ -305,8 +311,7 @@ export default async function handler(req, res) {
       success: true,
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
-      errors: syncRecord.errors.slice(0, 5),
-      visitDiag
+      errors: syncRecord.errors.slice(0, 5)
     });
 
   } catch (error) {
