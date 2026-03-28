@@ -213,6 +213,7 @@ export default async function handler(req, res) {
 
     // Process up to 50 members per run to stay within Vercel's 60s limit
     const membersToProcess = members.slice(0, 50);
+    let visitDiag = null; // capture first member's raw visit response for diagnosis
 
     for (const member of membersToProcess) {
       await sleep(50);
@@ -227,6 +228,7 @@ export default async function handler(req, res) {
           limit: 200
         }, accessToken);
         visits = visitData.Visits || [];
+        if (!visitDiag) visitDiag = { memberId: member.Id, responseKeys: Object.keys(visitData), totalResults: visitData.PaginationResponse?.TotalResults, visitsCount: visits.length };
       } catch (e) {
         syncRecord.errors.push(`Visit fetch failed for ${member.Id}: ${e.message}`);
       }
@@ -287,7 +289,8 @@ export default async function handler(req, res) {
       success: true,
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
-      errors: syncRecord.errors.slice(0, 5)
+      errors: syncRecord.errors.slice(0, 5),
+      visitDiag
     });
 
   } catch (error) {
