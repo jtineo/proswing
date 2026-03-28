@@ -195,11 +195,6 @@ export default async function handler(req, res) {
     const accessToken = await mbGetStaffToken();
     console.log('[sync] Mindbody staff token acquired');
 
-    // ── Pull members ─────────────────────────────────
-    const membersData = await mbGet('/client/clients', { limit: 200, offset: 0 }, accessToken);
-    const members = membersData.Clients || [];
-    console.log('[sync] Members pulled:', members.length);
-
     // Monthly counter accumulators
     let membersRecovered  = 0;
     let revenueRecovered  = 0;
@@ -230,7 +225,7 @@ export default async function handler(req, res) {
     }
     console.log('[sync] Appointments pulled:', allAppts.length);
 
-    // Group by ClientId
+    // Group by ClientId (appointment ClientId matches member Id)
     const apptsByClient = {};
     for (const appt of allAppts) {
       const cid = String(appt.ClientId || '');
@@ -239,21 +234,36 @@ export default async function handler(req, res) {
       apptsByClient[cid].push(appt);
     }
 
-    // Quick diagnostic: look up a known appointment ClientId to see their member profile
-    const knownApptClientId = Object.keys(apptsByClient)[0]; // e.g. "58121"
-    const lookupRes = await mbGet('/client/clients', { clientIds: knownApptClientId }, accessToken).catch(e => ({ _error: e.message }));
-    const lookedUpClient = (lookupRes.Clients || [])[0] || {};
-    const apptDiag = {
-      apptCount: allAppts.length,
-      uniqueApptClients: Object.keys(apptsByClient).length,
-      testedApptClientId: knownApptClientId,
-      lookedUpClientId: lookedUpClient.Id,
-      lookedUpClientUniqueId: lookedUpClient.UniqueId,
-      lookedUpClientKeys: Object.keys(lookedUpClient),
-    };
+    // ── Fetch active members by appointment ClientIds ─────
+    // /client/clients default sort puts inactive old clients first — we only want
+    // the clients who actually have appointments in the lookback window.
+    const apptClientIds = Object.keys(apptsByClient);
+    const members = [];
+    const MEMBER_BATCH = 50;
+    const mbApiKey = process.env.MINDBODY_API_KEY;
+    const mbSiteId = process.env.MINDBODY_SITE_ID;
+    for (let i = 0; i < Math.min(apptClientIds.length, 400); i += MEMBER_BATCH) {
+      if (i > 0) await sleep(250);
+      const batchIds = apptClientIds.slice(i, i + MEMBER_BATCH);
+      const url = new URL(`${MB_BASE}/client/clients`);
+      url.searchParams.set('limit', String(MEMBER_BATCH + 10));
+      batchIds.forEach(id => url.searchParams.append('clientIds', id));
+      const res = await fetchWithTimeout(url.toString(), {
+        headers: {
+          'Api-Key': mbApiKey,
+          'SiteId':  mbSiteId,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        members.push(...(data.Clients || []));
+      }
+    }
+    console.log('[sync] Active members fetched:', members.length);
 
-    // Process up to 50 members per run to stay within Vercel's 60s limit
-    const membersToProcess = members.slice(0, 50);
+    const membersToProcess = members;
 
     for (const member of membersToProcess) {
       // Map appointments to visit-like objects for risk scoring
@@ -324,8 +334,7 @@ export default async function handler(req, res) {
       success: true,
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
-      errors: syncRecord.errors.slice(0, 5),
-      apptDiag
+      errors: syncRecord.errors.slice(0, 5)
     });
 
   } catch (error) {
