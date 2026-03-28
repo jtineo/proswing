@@ -228,7 +228,19 @@ export default async function handler(req, res) {
           limit: 200
         }, accessToken);
         visits = visitData.Visits || [];
-        if (!visitDiag) visitDiag = { memberId: member.Id, responseKeys: Object.keys(visitData), totalResults: visitData.PaginationResponse?.TotalResults, visitsCount: visits.length };
+        if (!visitDiag) {
+          // Also try: no date filter on this member, and a site-wide visit count
+          const allVisits = await mbGet('/client/clientvisits', { clientId: member.Id, limit: 5 }, accessToken).catch(() => ({}));
+          const siteVisits = await mbGet('/client/clientvisits', { limit: 5 }, accessToken).catch(() => ({}));
+          visitDiag = {
+            memberId: member.Id,
+            responseKeys: Object.keys(visitData),
+            withDateFilter: visitData.PaginationResponse?.TotalResults,
+            withoutDateFilter: allVisits.PaginationResponse?.TotalResults,
+            siteWideTotal: siteVisits.PaginationResponse?.TotalResults,
+            siteWideFirstVisitKeys: siteVisits.Visits?.[0] ? Object.keys(siteVisits.Visits[0]) : []
+          };
+        }
       } catch (e) {
         syncRecord.errors.push(`Visit fetch failed for ${member.Id}: ${e.message}`);
       }
