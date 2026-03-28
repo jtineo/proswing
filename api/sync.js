@@ -242,6 +242,8 @@ export default async function handler(req, res) {
     const MEMBER_BATCH = 50;
     const mbApiKey = process.env.MINDBODY_API_KEY;
     const mbSiteId = process.env.MINDBODY_SITE_ID;
+    let memberFetchStatus = null;
+    let memberFetchBody = null;
     for (let i = 0; i < Math.min(apptClientIds.length, 400); i += MEMBER_BATCH) {
       if (i > 0) await sleep(250);
       const batchIds = apptClientIds.slice(i, i + MEMBER_BATCH);
@@ -256,7 +258,15 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${accessToken}`
         }
       });
-      if (res.ok) {
+      if (i === 0) {
+        memberFetchStatus = res.status;
+        const text = await res.text();
+        memberFetchBody = text.substring(0, 200);
+        if (res.ok) {
+          const data = JSON.parse(text);
+          members.push(...(data.Clients || []));
+        }
+      } else if (res.ok) {
         const data = await res.json();
         members.push(...(data.Clients || []));
       }
@@ -335,7 +345,7 @@ export default async function handler(req, res) {
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
       errors: syncRecord.errors.slice(0, 5),
-      _diag: { appts: allAppts.length, uniqueClients: Object.keys(apptsByClient).length, membersFetched: members.length }
+      _diag: { appts: allAppts.length, uniqueClients: Object.keys(apptsByClient).length, membersFetched: members.length, memberFetchStatus, memberFetchBody }
     });
 
   } catch (error) {
