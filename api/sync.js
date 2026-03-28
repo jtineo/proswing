@@ -239,15 +239,17 @@ export default async function handler(req, res) {
       apptsByClient[cid].push(appt);
     }
 
-    // Quick diagnostic: check first appointment vs first member
-    const firstAppt = allAppts[0] || {};
-    const firstMember = members[0] || {};
+    // Quick diagnostic: look up a known appointment ClientId to see their member profile
+    const knownApptClientId = Object.keys(apptsByClient)[0]; // e.g. "58121"
+    const lookupRes = await mbGet('/client/clients', { clientIds: knownApptClientId }, accessToken).catch(e => ({ _error: e.message }));
+    const lookedUpClient = (lookupRes.Clients || [])[0] || {};
     const apptDiag = {
       apptCount: allAppts.length,
-      sampleApptClientId: firstAppt.ClientId,
       uniqueApptClients: Object.keys(apptsByClient).length,
-      sampleApptKeys: Object.keys(apptsByClient).slice(0, 5),
-      firstMemberRaw: firstMember,
+      testedApptClientId: knownApptClientId,
+      lookedUpClientId: lookedUpClient.Id,
+      lookedUpClientUniqueId: lookedUpClient.UniqueId,
+      lookedUpClientKeys: Object.keys(lookedUpClient),
     };
 
     // Process up to 50 members per run to stay within Vercel's 60s limit
