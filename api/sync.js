@@ -229,16 +229,20 @@ export default async function handler(req, res) {
         }, accessToken);
         visits = visitData.Visits || [];
         if (!visitDiag) {
-          // Also try: no date filter on this member, and a site-wide visit count
-          const allVisits = await mbGet('/client/clientvisits', { clientId: member.Id, limit: 5 }, accessToken).catch(() => ({}));
-          const siteVisits = await mbGet('/client/clientvisits', { limit: 5 }, accessToken).catch(() => ({}));
+          // Check appointments endpoint — athletic facilities often use appointments not class visits
+          const now = new Date().toISOString();
+          const sixMonthsAgo = new Date(Date.now() - 180 * 86400000).toISOString();
+          const apptData = await mbGet('/appointment/staffappointments', {
+            startDate: sixMonthsAgo,
+            endDate: now,
+            limit: 5
+          }, accessToken).catch(e => ({ _error: e.message }));
           visitDiag = {
             memberId: member.Id,
-            responseKeys: Object.keys(visitData),
-            withDateFilter: visitData.PaginationResponse?.TotalResults,
-            withoutDateFilter: allVisits.PaginationResponse?.TotalResults,
-            siteWideTotal: siteVisits.PaginationResponse?.TotalResults,
-            siteWideFirstVisitKeys: siteVisits.Visits?.[0] ? Object.keys(siteVisits.Visits[0]) : []
+            classVisitsTotal: visitData.PaginationResponse?.TotalResults ?? 0,
+            appointmentKeys: apptData._error ? `error: ${apptData._error}` : Object.keys(apptData),
+            appointmentTotal: apptData.Appointments?.length ?? apptData._error ?? 'no Appointments key',
+            appointmentResponseKeys: apptData._error ? [] : Object.keys(apptData)
           };
         }
       } catch (e) {
