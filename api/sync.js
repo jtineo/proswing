@@ -365,12 +365,12 @@ export default async function handler(req, res) {
         ghlUpdates.push({
           contactId: ghlContactId,
           fields: {
-            risk_score:       risk.score,
-            member_segment:   risk.segment,
-            days_since_visit: risk.daysSinceVisit,
-            last_visit_date:  risk.lastVisitDate,
-            package_expiry:   risk.packageExpiry,
-            lifetime_value:   risk.lifetimeValue
+            'contact.risk_score':       risk.score,
+            'contact.member_segment':   risk.segment,
+            'contact.days_since_visit': risk.daysSinceVisit,
+            'contact.last_visit_date':  risk.lastVisitDate,
+            'contact.package_expiry':   risk.packageExpiry,
+            'contact.lifetime_value':   risk.lifetimeValue
           }
         });
       }
@@ -394,14 +394,14 @@ export default async function handler(req, res) {
     syncRecord.endTime = new Date().toISOString();
 
     await ghlUpdateContact(agencyContactId, {
-      last_sync_result:            JSON.stringify(syncRecord),
-      last_sync_time:              new Date().toISOString(),
-      last_sync_status:            'success',
-      last_sync_count:             syncRecord.membersProcessed,
-      members_recovered_increment: membersRecovered,
-      revenue_recovered_increment: revenueRecovered,
-      new_members_increment:       newMembers,
-      at_risk_caught_increment:    atRiskCaught
+      'contact.last_sync_result':            JSON.stringify(syncRecord),
+      'contact.last_sync_time':              new Date().toISOString(),
+      'contact.last_sync_status':            'success',
+      'contact.last_sync_count':             syncRecord.membersProcessed,
+      'contact.members_recovered_increment': membersRecovered,
+      'contact.revenue_recovered_increment': revenueRecovered,
+      'contact.new_members_increment':       newMembers,
+      'contact.at_risk_caught_increment':    atRiskCaught
     });
 
     return res.status(200).json({
@@ -419,10 +419,10 @@ export default async function handler(req, res) {
     // Update health monitor with failure
     try {
       await ghlUpdateContact(agencyContactId, {
-        last_sync_result: JSON.stringify(syncRecord),
-        last_sync_time:   new Date().toISOString(),
-        last_sync_status: 'failed',
-        last_sync_count:  syncRecord.membersProcessed
+        'contact.last_sync_result': JSON.stringify(syncRecord),
+        'contact.last_sync_time':   new Date().toISOString(),
+        'contact.last_sync_status': 'failed',
+        'contact.last_sync_count':  syncRecord.membersProcessed
       });
     } catch { /* best-effort */ }
 
