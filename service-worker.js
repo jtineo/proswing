@@ -1,4 +1,4 @@
-const CACHE_NAME = 'octoemployee-v1';
+const CACHE_NAME = 'octoemployee-v0.10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
