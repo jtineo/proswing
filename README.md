@@ -1,6 +1,8 @@
-# OctoEmployee — ProSwing Athletic Training
+# OctoEmployee — ProSwing Athletic Training  v0.10
 
-AI-powered business coach for fitness studios. Members log in via SMS PIN. Staff ask questions about at-risk members, revenue, and churn in a mobile chat interface. Nightly Mindbody sync scores every member for risk and updates GoHighLevel. Monthly report delivers ROI numbers by SMS.
+Otto is an AI business partner for ProSwing Athletic Training. He functions as a marketing manager, CFO, and operations director in one — keeping tabs on member retention, revenue, and engagement so the owner can focus on coaching.
+
+Staff log in via email PIN. They ask Otto questions about at-risk members, revenue, and churn in a mobile chat interface. Nightly Mindbody sync scores every member for risk and updates GoHighLevel. Monthly report delivers ROI numbers via email.
 
 ---
 
@@ -11,17 +13,33 @@ AI-powered business coach for fitness studios. Members log in via SMS PIN. Staff
 | `index.html` | The entire app: PWA login screens + dashboard (no framework, no build step) |
 | `manifest.json` | Makes the app installable on iPhone home screen |
 | `service-worker.js` | Offline mode + Web Push notification handler |
-| `api/chat.js` | Accepts a question, verifies session, calls Claude, returns answer |
+| `api/chat.js` | Accepts a question, verifies session, calls Claude (Otto), returns answer |
 | `api/sync.js` | Pulls all Mindbody members, scores risk, writes to GoHighLevel contacts |
-| `api/report.js` | Generates monthly ROI report via Claude and sends it by SMS |
+| `api/report.js` | Generates monthly ROI report via Claude and sends it by email |
 | `api/briefing.js` | Sends a Monday morning SMS briefing to the studio owner |
-| `api/auth/request.js` | Validates phone, generates 6-digit PIN, sends via GHL SMS |
+| `api/auth/request.js` | Validates email, generates 6-digit PIN, sends via GHL email |
 | `api/auth/verify.js` | Validates PIN, issues 30-day HttpOnly session cookie |
 | `api/auth/logout.js` | Clears session cookie |
 | `api/auth/status.js` | Checks if current session cookie is valid |
 | `api/admin/users.js` | Add, remove, or list users without redeployment |
-| `config/users.json` | User roster: phone numbers, GHL contact IDs, roles |
+| `config/users.json` | User roster: email addresses, phone numbers, GHL contact IDs, roles |
 | `vercel.json` | Routing rules, security headers, function timeouts |
+
+---
+
+## Authentication — Email Login (v0.10)
+
+Login now uses **email address instead of phone number**:
+
+1. User enters their email address on the login screen
+2. Otto sends a 6-digit PIN to that email via GHL's email conversations API
+3. User enters the PIN to receive a 30-day session cookie
+
+**Requirements:**
+- `config/users.json` requires an `"email"` field per user (see schema below)
+- GHL contacts must have a valid email address on file
+- GHL email sending must be enabled in the sub-account settings
+- `"phone"` field is kept for outreach to members — it is **not** used for login
 
 ---
 
@@ -67,7 +85,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    git init
    git add -A
    git commit -m "Initial deploy"
-   git remote add origin https://github.com/YOUR_ORG/octoemployee-proswing.git
+   git remote add origin https://github.com/YOUR_ORG/octo-proswing.git
    git push -u origin master
    ```
 
@@ -87,25 +105,25 @@ Set up three GHL workflows to call the protected endpoints on a schedule:
 - Trigger: Time-based, every day at 2:00am
 - Action: HTTP Request
   - Method: POST
-  - URL: `https://your-project.vercel.app/api/sync`
+  - URL: `https://octo-proswing.vercel.app/api/sync`
   - Headers: `Authorization: Bearer YOUR_ADMIN_TOKEN`
-  - Body: `{"clientId":"proswing-001"}`
+  - Body: `{"clientId":"octo-proswing-001"}`
 
 **Monthly Report** (runs 1st of each month):
 - Trigger: Time-based, 1st of month at 9:00am
 - Action: HTTP Request
   - Method: POST
-  - URL: `https://your-project.vercel.app/api/report`
+  - URL: `https://octo-proswing.vercel.app/api/report`
   - Headers: `Authorization: Bearer YOUR_ADMIN_TOKEN`
-  - Body: `{"clientId":"proswing-001"}`
+  - Body: `{"clientId":"octo-proswing-001"}`
 
 **Monday Briefing** (runs every Monday):
 - Trigger: Time-based, every Monday at 8:00am
 - Action: HTTP Request
   - Method: POST
-  - URL: `https://your-project.vercel.app/api/briefing`
+  - URL: `https://octo-proswing.vercel.app/api/briefing`
   - Headers: `Authorization: Bearer YOUR_ADMIN_TOKEN`
-  - Body: `{"clientId":"proswing-001"}`
+  - Body: `{"clientId":"octo-proswing-001"}`
 
 ---
 
@@ -113,30 +131,30 @@ Set up three GHL workflows to call the protected endpoints on a schedule:
 
 ```bash
 # Check session status (should return 401 when not logged in)
-curl https://your-project.vercel.app/api/auth/status
+curl https://octo-proswing.vercel.app/api/auth/status
 
-# Request a PIN (replace with a real authorized phone number)
-curl -X POST https://your-project.vercel.app/api/auth/request \
+# Request a PIN (replace with a real authorized email address)
+curl -X POST https://octo-proswing.vercel.app/api/auth/request \
   -H "Content-Type: application/json" \
-  -d '{"phone":"7045550001"}'
+  -d '{"email":"dan@proswing.com"}'
 
 # Trigger a manual sync
-curl -X POST https://your-project.vercel.app/api/sync \
+curl -X POST https://octo-proswing.vercel.app/api/sync \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"clientId":"proswing-001"}'
+  -d '{"clientId":"octo-proswing-001"}'
 
 # Trigger a manual report
-curl -X POST https://your-project.vercel.app/api/report \
+curl -X POST https://octo-proswing.vercel.app/api/report \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"clientId":"proswing-001"}'
+  -d '{"clientId":"octo-proswing-001"}'
 
 # Trigger Monday briefing
-curl -X POST https://your-project.vercel.app/api/briefing \
+curl -X POST https://octo-proswing.vercel.app/api/briefing \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"clientId":"proswing-001"}'
+  -d '{"clientId":"octo-proswing-001"}'
 ```
 
 ---
@@ -145,9 +163,26 @@ curl -X POST https://your-project.vercel.app/api/briefing \
 
 All user changes go through the admin API. Requires `x-admin-token` header.
 
-**List all users** (phone numbers are masked):
+**User object schema:**
+```json
+{
+  "id": "user-001",
+  "name": "Coach Dana",
+  "email": "dana@proswing.com",
+  "phone": "+17045550001",
+  "role": "owner",
+  "ghlContactId": "abc123xyz",
+  "active": true,
+  "addedDate": "2026-01-15"
+}
+```
+- `email` — used for login (required)
+- `phone` — used for outreach to members (optional)
+- `ghlContactId` — GHL contact ID for sending the login PIN via email
+
+**List all users** (emails are masked):
 ```bash
-curl -X POST https://your-project.vercel.app/api/admin/users \
+curl -X POST https://octo-proswing.vercel.app/api/admin/users \
   -H "x-admin-token: YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"action":"list"}'
@@ -155,14 +190,15 @@ curl -X POST https://your-project.vercel.app/api/admin/users \
 
 **Add a user:**
 ```bash
-curl -X POST https://your-project.vercel.app/api/admin/users \
+curl -X POST https://octo-proswing.vercel.app/api/admin/users \
   -H "x-admin-token: YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "action": "add",
     "user": {
       "name": "Jane Smith",
-      "phone": "7045550002",
+      "email": "jane@proswing.com",
+      "phone": "+17045550002",
       "role": "manager",
       "ghlContactId": "GHL_CONTACT_ID_HERE"
     }
@@ -173,10 +209,10 @@ Valid roles: `owner`, `manager`, `staff`
 
 **Remove a user** (sets active = false, does not delete):
 ```bash
-curl -X POST https://your-project.vercel.app/api/admin/users \
+curl -X POST https://octo-proswing.vercel.app/api/admin/users \
   -H "x-admin-token: YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"action":"remove","user":{"phone":"7045550002"}}'
+  -d '{"action":"remove","user":{"email":"jane@proswing.com"}}'
 ```
 
 To add the user to `config/users.json` permanently (persists across cold starts), edit the file directly and redeploy.
@@ -186,10 +222,11 @@ To add the user to `config/users.json` permanently (persists across cold starts)
 ## Replicating for a New Client
 
 1. Duplicate this entire repo.
-2. In `index.html` update `CLIENT_NAME` and `CLIENT_ID` at the top of the script block.
-3. In `config/users.json` update `clientId`, `clientName`, and replace the users array.
+2. In `index.html` update `CLIENT_NAME`, `CLIENT_ID`, and `APP_VERSION` at the top of the script block.
+3. In `config/users.json` update `clientId`, `clientName`, and replace the users array with the new client's users (including real email addresses).
 4. Generate new `AUTH_SECRET`, `PIN_STORE_SECRET`, and `ADMIN_TOKEN` (never reuse across clients).
 5. Create a new Vercel project linked to the new repo.
 6. Add all environment variables for the new client to the Vercel dashboard.
 7. Set up GHL workflows pointing to the new Vercel URL.
-8. Test locally, then deploy.
+8. Verify GHL email sending is enabled in the new sub-account.
+9. Test locally, then deploy.

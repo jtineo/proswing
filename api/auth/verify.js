@@ -6,11 +6,9 @@ import { pinStore } from './request.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function normalizePhone(raw) {
-  const digits = String(raw).replace(/\D/g, '');
-  if (digits.length === 10)                      return '+1' + digits;
-  if (digits.length === 11 && digits[0] === '1') return '+' + digits;
-  return null;
+function normalizeEmail(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  return raw.trim().toLowerCase();
 }
 
 export default async function handler(req, res) {
@@ -24,11 +22,11 @@ export default async function handler(req, res) {
   if (!pinStoreSecret) throw new Error('PIN_STORE_SECRET is not set');
   if (!authSecret)     throw new Error('AUTH_SECRET is not set');
 
-  const { phone, pin } = req.body || {};
-  const normalized = normalizePhone(phone);
+  const { email, pin } = req.body || {};
+  const normalized = normalizeEmail(email);
 
   if (!normalized || !pin) {
-    return res.status(400).json({ error: 'phone and pin are required' });
+    return res.status(400).json({ error: 'email and pin are required' });
   }
 
   // ── Look up PIN record ────────────────────────────
@@ -79,7 +77,9 @@ export default async function handler(req, res) {
   // ── Build session token ───────────────────────────
   const usersPath = path.join(__dirname, '../../config/users.json');
   const config    = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
-  const user      = config.users.find(u => u.phone === normalized && u.active === true);
+  const user      = config.users.find(
+    u => u.email?.toLowerCase() === normalized && u.active === true
+  );
 
   if (!user) {
     return res.status(401).json({ error: 'User not found.' });

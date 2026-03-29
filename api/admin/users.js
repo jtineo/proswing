@@ -1,15 +1,16 @@
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Module-level in-memory user store (extends config/users.json at startup)
-// In production, replace with Vercel KV for persistence across cold starts.
 let usersCache = null;
 
 function loadUsers() {
   if (usersCache) return usersCache;
-  // Dynamic import of fs to avoid issues — use synchronous read
-  const fs   = require('fs');
-  const path = require('path');
-  const usersPath = path.join(process.cwd(), 'config', 'users.json');
+  const usersPath = path.join(__dirname, '../../config/users.json');
   try {
     usersCache = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
   } catch {
@@ -30,10 +31,10 @@ function verifyAdminToken(req) {
   }
 }
 
-function maskPhone(phone) {
-  // Show only last 4 digits: ***-***-XXXX
-  const digits = String(phone).replace(/\D/g, '');
-  return '***-***-' + digits.slice(-4);
+function maskEmail(email) {
+  // Show only domain: ***@domain.com
+  const parts = String(email).split('@');
+  return '***@' + (parts[1] || 'unknown');
 }
 
 export default async function handler(req, res) {
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
       const masked = config.users.map(u => ({
         id:           u.id,
         name:         u.name,
-        phone:        maskPhone(u.phone),
+        email:        maskEmail(u.email || ''),
         role:         u.role,
         active:       u.active,
         addedDate:    u.addedDate,
@@ -67,34 +68,35 @@ export default async function handler(req, res) {
     }
 
     case 'add': {
-      if (!user?.name || !user?.phone || !user?.role) {
-        return res.status(400).json({ error: 'user.name, user.phone, and user.role are required' });
+      if (!user?.name || !user?.email || !user?.role) {
+        return res.status(400).json({ error: 'user.name, user.email, and user.role are required' });
       }
       if (!config.roles[user.role]) {
         return res.status(400).json({ error: `Invalid role. Valid roles: ${Object.keys(config.roles).join(', ')}` });
       }
 
-      const digits = String(user.phone).replace(/\D/g, '');
-      let normalized;
-      if (digits.length === 10)                      normalized = '+1' + digits;
-      else if (digits.length === 11 && digits[0] === '1') normalized = '+' + digits;
-      else return res.status(400).json({ error: 'Invalid phone number format' });
+      const normalized = user.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+        return res.status(400).json({ error: 'Invalid email address' });
+      }
 
-      const exists = config.users.find(u => u.phone === normalized);
+      const exists = config.users.find(u => u.email?.toLowerCase() === normalized);
       if (exists) {
-        if (exists.active) return res.status(409).json({ error: 'User with this phone already exists' });
+        if (exists.active) return res.status(409).json({ error: 'User with this email already exists' });
         // Re-activate if previously removed
         exists.active    = true;
         exists.role      = user.role;
         exists.name      = user.name;
         if (user.ghlContactId) exists.ghlContactId = user.ghlContactId;
+        if (user.phone) exists.phone = user.phone;
         return res.status(200).json({ success: true, action: 'reactivated', id: exists.id });
       }
 
       const newUser = {
         id:           'user-' + Date.now(),
         name:         user.name,
-        phone:        normalized,
+        email:        normalized,
+        phone:        user.phone || '',
         role:         user.role,
         ghlContactId: user.ghlContactId || '',
         active:       true,
@@ -105,15 +107,10 @@ export default async function handler(req, res) {
     }
 
     case 'remove': {
-      if (!user?.phone) return res.status(400).json({ error: 'user.phone is required' });
+      if (!user?.email) return res.status(400).json({ error: 'user.email is required' });
 
-      const digits = String(user.phone).replace(/\D/g, '');
-      let normalized;
-      if (digits.length === 10)                        normalized = '+1' + digits;
-      else if (digits.length === 11 && digits[0] === '1') normalized = '+' + digits;
-      else return res.status(400).json({ error: 'Invalid phone number format' });
-
-      const target = config.users.find(u => u.phone === normalized);
+      const normalized = user.email.trim().toLowerCase();
+      const target = config.users.find(u => u.email?.toLowerCase() === normalized);
       if (!target) return res.status(404).json({ error: 'User not found' });
 
       target.active = false;

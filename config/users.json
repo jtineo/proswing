@@ -1,10 +1,11 @@
 {
-  "clientId": "proswing-001",
+  "clientId": "octo-proswing-001",
   "clientName": "ProSwing Athletic Training",
   "users": [
     {
       "id": "user-001",
       "name": "Dan Grey",
+      "email": "dan@proswing.com",
       "phone": "+19145577124",
       "role": "owner",
       "ghlContactId": "hpurV6cqtn2lj3MQterR",

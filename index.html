@@ -8,6 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="OctoEmployee" />
   <link rel="manifest" href="/manifest.json" />
+  <!-- TODO: Replace with assets from jtineo/octoEmployee -->
+  <link rel="apple-touch-icon" href="/assets/octoemployee-icon.png">
   <title>OctoEmployee</title>
   <style>
     :root {
@@ -72,7 +74,7 @@
       text-align: center;
       line-height: 1.5;
     }
-    input[type=tel], input[type=text], input[type=password] {
+    input[type=tel], input[type=email], input[type=text], input[type=password] {
       background: var(--bg3);
       border: 1px solid #1e3045;
       border-radius: 10px;
@@ -494,10 +496,10 @@
       <div class="logo">OctoEmployee</div>
       <div class="client-name" id="s1-client-name"></div>
     </div>
-    <h2>Enter your phone number</h2>
-    <p class="subtitle">We will send a 6-digit PIN to your phone</p>
-    <input type="tel" id="phone-input" placeholder="(555) 555-5555" autocomplete="tel" />
-    <button class="btn-primary" id="send-pin-btn">Send PIN</button>
+    <h2>Hey there. I'm Otto — your AI business partner.</h2>
+    <p class="subtitle">Enter your email to get started.</p>
+    <input type="email" id="phone-input" placeholder="Enter your email address" autocomplete="email" autocapitalize="none" />
+    <button class="btn-primary" id="send-pin-btn">Email me a PIN</button>
     <p id="phone-msg" style="display:none"></p>
   </div>
 
@@ -506,8 +508,8 @@
     <div class="wordmark">
       <div class="logo">OctoEmployee</div>
     </div>
-    <h2>Check your phone</h2>
-    <p class="subtitle" id="pin-subtitle">Enter the PIN sent to your phone</p>
+    <h2>Check your email</h2>
+    <p class="subtitle" id="pin-subtitle">Enter the PIN sent to your email</p>
     <div class="pin-row" id="pin-row">
       <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
       <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
@@ -517,7 +519,7 @@
       <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
     </div>
     <p id="pin-msg" style="display:none"></p>
-    <button class="link-btn" id="resend-btn" style="display:none">Resend PIN</button>
+    <button class="link-btn" id="resend-btn" style="display:none">Resend email</button>
     <button class="link-btn" id="back-btn">← Back</button>
   </div>
 </div>
@@ -590,13 +592,15 @@
 
 <script>
   // ── Client config ────────────────────────────────
-  const CLIENT_NAME = 'ProSwing Athletic Training';
-  const CLIENT_ID   = 'proswing-001';
+  const CLIENT_NAME = 'ProSwing';
+  const CLIENT_ID   = 'octo-proswing-001';
+  const OTTO_NAME   = 'Otto';
+  const APP_VERSION = '0.10';
 
   // ── State ────────────────────────────────────────
-  let currentUser = null;
-  let storedPhone = '';
-  let pinFailures = 0;
+  let currentUser  = null;
+  let storedEmail  = '';
+  let pinFailures  = 0;
   let resendTimer = null;
 
   // ── Boot ─────────────────────────────────────────
@@ -626,16 +630,8 @@
     document.getElementById('screen-pin').style.display   = screen === 'pin'   ? 'flex' : 'none';
   }
 
-  // Screen 1 — phone input formatting
+  // Screen 1 — email input
   const phoneInput = document.getElementById('phone-input');
-  phoneInput.addEventListener('input', () => {
-    const digits = phoneInput.value.replace(/\D/g, '').slice(0, 10);
-    let formatted = '';
-    if (digits.length > 0) formatted = '(' + digits.slice(0, 3);
-    if (digits.length >= 4) formatted += ') ' + digits.slice(3, 6);
-    if (digits.length >= 7) formatted += '-' + digits.slice(6, 10);
-    phoneInput.value = formatted;
-  });
 
   document.getElementById('send-pin-btn').addEventListener('click', sendPin);
   phoneInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendPin(); });
@@ -645,9 +641,9 @@
     const msgEl = document.getElementById('phone-msg');
     msgEl.style.display = 'none';
 
-    const raw = phoneInput.value.replace(/\D/g, '');
-    if (raw.length < 10) {
-      showMsg(msgEl, 'error', 'Please enter a valid 10-digit phone number.');
+    const raw = phoneInput.value.trim().toLowerCase();
+    if (!raw.includes('@') || !raw.includes('.')) {
+      showMsg(msgEl, 'error', 'Please enter a valid email address');
       return;
     }
 
@@ -658,27 +654,27 @@
       const res = await fetch('/api/auth/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: raw })
+        body: JSON.stringify({ email: raw })
       });
       const data = await res.json();
 
       if (res.status === 429) {
         showMsg(msgEl, 'warn', 'Too many requests. Try again in 1 hour.');
         btn.disabled = false;
-        btn.textContent = 'Send PIN';
+        btn.textContent = 'Email me a PIN';
         return;
       }
       if (!res.ok) {
         showMsg(msgEl, 'error', data.error || 'Something went wrong. Try again.');
         btn.disabled = false;
-        btn.textContent = 'Send PIN';
+        btn.textContent = 'Email me a PIN';
         return;
       }
 
-      storedPhone = raw;
+      storedEmail = raw;
       pinFailures = 0;
       document.getElementById('pin-subtitle').textContent =
-        'Enter the PIN sent to ***-***-' + raw.slice(-4);
+        'PIN sent to ***@' + raw.split('@')[1];
       renderAuth('pin');
       clearPinInputs();
       getPinInputs()[0].focus();
@@ -686,7 +682,7 @@
     } catch (e) {
       showMsg(msgEl, 'error', 'Something went wrong. Try again.');
       btn.disabled = false;
-      btn.textContent = 'Send PIN';
+      btn.textContent = 'Email me a PIN';
     }
   }
 
@@ -730,7 +726,7 @@
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: storedPhone, pin })
+        body: JSON.stringify({ email: storedEmail, pin })
       });
       const data = await res.json();
 
@@ -775,7 +771,7 @@
       if (remaining <= 0) {
         btn.style.display = 'block';
         btn.disabled = false;
-        btn.textContent = 'Resend PIN';
+        btn.textContent = 'Resend email';
         return;
       }
       remaining--;
@@ -787,10 +783,10 @@
   document.getElementById('resend-btn').addEventListener('click', async () => {
     const btn = document.getElementById('resend-btn');
     btn.disabled = true;
-    await sendPinForPhone(storedPhone);
+    await sendPinForEmail(storedEmail);
     let countdown = 60;
     const tick = () => {
-      if (countdown <= 0) { btn.disabled = false; btn.textContent = 'Resend PIN'; return; }
+      if (countdown <= 0) { btn.disabled = false; btn.textContent = 'Resend email'; return; }
       btn.textContent = 'Resend in ' + countdown + 's';
       countdown--;
       setTimeout(tick, 1000);
@@ -798,12 +794,12 @@
     tick();
   });
 
-  async function sendPinForPhone(raw) {
+  async function sendPinForEmail(email) {
     try {
       await fetch('/api/auth/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: raw })
+        body: JSON.stringify({ email })
       });
     } catch (e) { /* silent */ }
   }
@@ -825,7 +821,7 @@
     buildStatsStrip();
     buildQuickBar();
     initSettings();
-    appendAiMessage('👋 Hi ' + currentUser.name + '! I\'m your AI business coach for ' + CLIENT_NAME + '. What would you like to know today?');
+    appendAiMessage('Hey ' + currentUser.name + ' — I\'m Otto, your AI business partner. I\'m your marketing manager, CFO, and operations director all in one. Tell me what you need or tap a quick action below.');
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});
