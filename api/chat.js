@@ -235,6 +235,9 @@ export default async function handler(req, res) {
   if (!question || typeof question !== 'string') {
     return res.status(400).json({ error: 'question is required' });
   }
+  if (question.length > 1000) {
+    return res.status(400).json({ error: 'Question too long (max 1000 characters).' });
+  }
 
   const lowerQ = question.toLowerCase();
   if (!payload.permissions?.canViewRevenue && REVENUE_KEYWORDS.some(kw => lowerQ.includes(kw))) {
