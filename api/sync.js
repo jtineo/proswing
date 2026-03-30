@@ -56,7 +56,8 @@ const GHL_FIELD_IDS = {
   'contact.members_recovered_increment': '11yQ2UDsitFvKBk0tyFJ',
   'contact.revenue_recovered_increment': 'NbS6XAXteLGrgZGq0QJ8',
   'contact.new_members_increment':     'jm5AQXYjJkO8XKAfrC0A',
-  'contact.at_risk_caught_increment':  '4utx2oyCrkzDneJvfLpq'
+  'contact.at_risk_caught_increment':  '4utx2oyCrkzDneJvfLpq',
+  'contact.mindbody_client_id':        'swyQKBCQLNGPHAZkiuZf'
 };
 
 async function ghlUpdateContact(contactId, fields) {
@@ -111,7 +112,9 @@ async function fetchGhlContactMaps(ghlKey, locationId) {
       if (c.email) byEmail[c.email.toLowerCase()] = c.id;
       const norm = normalizePhone(c.phone);
       if (norm) byPhone[norm] = c.id;
-      if (c.externalId) byMbId[String(c.externalId)] = c.id;
+      // Mindbody client ID stored in custom field
+      const mbField = (c.customFields || []).find(f => f.id === 'swyQKBCQLNGPHAZkiuZf');
+      if (mbField?.value) byMbId[String(mbField.value)] = c.id;
     }
 
     if (batch.length < 100) break;

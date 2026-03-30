@@ -211,12 +211,13 @@ export default async function handler(req, res) {
   const ghlContacts = await fetchAllGhlContacts(ghlKey, ghlLocationId);
   const byEmail = {};
   const byPhone = {};
-  const byMbId  = {}; // GHL externalId → GHL contact ID
+  const byMbId  = {}; // Mindbody client ID (custom field) → GHL contact ID
   for (const c of ghlContacts) {
     if (c.email) byEmail[c.email.toLowerCase()] = c.id;
     const norm = normalizePhone(c.phone);
     if (norm) byPhone[norm] = c.id;
-    if (c.externalId) byMbId[String(c.externalId)] = c.id;
+    const mbField = (c.customFields || []).find(f => f.id === 'swyQKBCQLNGPHAZkiuZf');
+    if (mbField?.value) byMbId[String(mbField.value)] = c.id;
   }
 
   // ── Step 5: Match existing or create new GHL contact, then link ──
@@ -230,7 +231,7 @@ export default async function handler(req, res) {
   const slice = members.slice(offset, offset + MAX_UPDATES);
 
   for (const member of slice) {
-    // Skip if GHL already has this Mindbody ID in externalId
+    // Skip if GHL already has this Mindbody ID in the custom field
     if (byMbId[String(member.Id)]) {
       alreadyLinked++;
       continue;
@@ -265,11 +266,13 @@ export default async function handler(req, res) {
         if (norm) byPhone[norm] = ghlContactId;
       }
 
-      // Write Mindbody client ID to GHL's built-in externalId field
+      // Write Mindbody client ID to GHL custom field so sync can match by ID
       await fetchWithTimeout(`${GHL_BASE2}/contacts/${ghlContactId}`, {
         method: 'PUT',
         headers: GHL_V2_HEADERS(ghlKey),
-        body: JSON.stringify({ externalId: String(member.Id) })
+        body: JSON.stringify({
+          customFields: [{ id: 'swyQKBCQLNGPHAZkiuZf', field_value: String(member.Id) }]
+        })
       });
       linked++;
     } catch (e) {
