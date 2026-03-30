@@ -159,6 +159,7 @@ export default async function handler(req, res) {
   if (!mbSiteId)      throw new Error('MINDBODY_SITE_ID is not set');
 
   const MAX_UPDATES = 40; // stay within Vercel 60s limit — run again if needed
+  const offset      = parseInt(req.body?.offset ?? 0, 10) || 0;
   const lookbackDays = 180;
 
   // ── Step 1: Mindbody auth ──────────────────────────────
@@ -225,14 +226,17 @@ export default async function handler(req, res) {
   let updateErrors = 0;
   const errors = [];
 
-  for (const member of members) {
+  // Apply offset to process a different slice of members each call
+  const slice = members.slice(offset, offset + MAX_UPDATES);
+
+  for (const member of slice) {
     // Skip if GHL already has this Mindbody ID in externalId
     if (byMbId[String(member.Id)]) {
       alreadyLinked++;
       continue;
     }
 
-    // Stop processing once we hit the cap (remaining will be picked up next run)
+    // Stop processing once we hit the cap
     if (linked + updateErrors >= MAX_UPDATES) continue;
 
     // Try to find existing GHL contact by email or phone
@@ -274,17 +278,19 @@ export default async function handler(req, res) {
     }
   }
 
-  const remaining = members.filter(m => !byMbId[String(m.Id)]).length - linked - updateErrors;
+  const remaining = Math.max(0, members.length - offset - MAX_UPDATES);
 
   return res.status(200).json({
     success: true,
+    offset,
     activeMembers: members.length,
     ghlContacts: ghlContacts.length,
     alreadyLinked,
     linked,
     created,
     updateErrors,
-    remaining: Math.max(0, remaining),
+    remaining,
+    nextOffset: remaining > 0 ? offset + MAX_UPDATES : null,
     errors: errors.slice(0, 5)
   });
 }
