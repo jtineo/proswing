@@ -104,8 +104,13 @@ async function ghlCreateContact(ghlKey, locationId, member) {
     body: JSON.stringify(body)
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`GHL create contact failed ${res.status}: ${text.substring(0, 100)}`);
+    let parsed;
+    try { parsed = await res.json(); } catch { parsed = null; }
+    // GHL returns existing contactId in meta when duplicate detection fires
+    const existingId = parsed?.meta?.contactId || parsed?.contact?.id;
+    if (existingId) return existingId;
+    const text = parsed ? JSON.stringify(parsed) : '';
+    throw new Error(`GHL create contact failed ${res.status}: ${text.substring(0, 150)}`);
   }
   const data = await res.json();
   return data.contact.id;
@@ -226,7 +231,7 @@ export default async function handler(req, res) {
     }
 
     // Stop processing once we hit the cap (remaining will be picked up next run)
-    if (linked >= MAX_UPDATES) continue;
+    if (linked + updateErrors >= MAX_UPDATES) continue;
 
     // Try to find existing GHL contact by email or phone
     const email = (member.Email || '').toLowerCase();
