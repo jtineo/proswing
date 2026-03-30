@@ -334,7 +334,7 @@ export default async function handler(req, res) {
 
     // ── Build GHL contact lookup maps (email + phone) ──
     const { byEmail, byPhone } = await fetchGhlContactMaps(ghlKey, ghlLocationId);
-    console.log('[sync] GHL contact map built');
+    console.log(`[sync] GHL contact map built: ${Object.keys(byEmail).length} emails, ${Object.keys(byPhone).length} phones`);
 
     // Compute risk for all members, collect GHL updates to run in parallel batches
     const ghlUpdates = []; // { contactId, fields }
@@ -364,6 +364,11 @@ export default async function handler(req, res) {
         for (const p of phones) {
           if (byPhone[p]) { ghlContactId = byPhone[p]; break; }
         }
+      }
+
+      // DEBUG — log first 3 unmatched members to diagnose matching
+      if (!ghlContactId && syncRecord.membersProcessed < 3) {
+        console.log(`[sync] no-match: MB email="${email}" phones="${phones.join(',')}" name="${member.FirstName} ${member.LastName}"`);
       }
 
       // Monthly counter logic
