@@ -221,10 +221,10 @@ export default async function handler(req, res) {
   }
 
   // ── Step 5: Match existing or create new GHL contact, then link ──
-  let linked       = 0;
+  let linked        = 0;
   let alreadyLinked = 0;
-  let created      = 0;
-  let updateErrors = 0;
+  let unmatched     = 0;
+  let updateErrors  = 0;
   const errors = [];
 
   // Apply offset to process a different slice of members each call
@@ -237,8 +237,8 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // Stop processing once we hit the cap
-    if (linked + updateErrors >= MAX_UPDATES) continue;
+    // Stop successful links at cap — unmatched don't count against it
+    if (linked >= MAX_UPDATES) continue;
 
     // Try to find existing GHL contact by email or phone
     const email = (member.Email || '').toLowerCase();
@@ -253,27 +253,24 @@ export default async function handler(req, res) {
       }
     }
 
+    // Skip members with no GHL contact match — don't create duplicates
+    if (!ghlContactId) {
+      unmatched++;
+      continue;
+    }
+
     try {
       await sleep(150);
 
-      // No existing GHL contact — create one from Mindbody data
-      if (!ghlContactId) {
-        ghlContactId = await ghlCreateContact(ghlKey, ghlLocationId, member);
-        created++;
-        // Add to lookup maps so duplicate MB members don't create duplicate GHL contacts
-        if (member.Email) byEmail[member.Email.toLowerCase()] = ghlContactId;
-        const norm = normalizePhone(member.MobilePhone || member.HomePhone);
-        if (norm) byPhone[norm] = ghlContactId;
-      }
-
       // Write Mindbody client ID to GHL custom field so sync can match by ID
-      await fetchWithTimeout(`${GHL_BASE2}/contacts/${ghlContactId}`, {
+      const putRes = await fetchWithTimeout(`${GHL_BASE2}/contacts/${ghlContactId}`, {
         method: 'PUT',
         headers: GHL_V2_HEADERS(ghlKey),
         body: JSON.stringify({
           customFields: [{ id: 'swyQKBCQLNGPHAZkiuZf', field_value: String(member.Id) }]
         })
       });
+      if (!putRes.ok) throw new Error(`GHL PUT failed ${putRes.status}`);
       linked++;
     } catch (e) {
       updateErrors++;
@@ -290,7 +287,7 @@ export default async function handler(req, res) {
     ghlContacts: ghlContacts.length,
     alreadyLinked,
     linked,
-    created,
+    unmatched,
     updateErrors,
     remaining,
     nextOffset: remaining > 0 ? offset + MAX_UPDATES : null,
