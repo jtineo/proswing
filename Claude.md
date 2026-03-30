@@ -81,7 +81,8 @@ One-time (or periodic) endpoint that links Mindbody members to GHL contacts by w
 - Fetches appointments from the last 180 days to identify active members
 - Matches existing GHL contacts by `externalId` → email → phone
 - Creates a new GHL contact if no match found
-- Caps at 40 updates per run to stay within Vercel's 60s function timeout — re-run if `remaining > 0` in the response
+- Caps at 40 updates per run to stay within Vercel's 60s function timeout
+- Accepts optional `offset` body param to paginate across multiple calls — response includes `nextOffset` (null when complete)
 - Protected by `ADMIN_TOKEN`
 
 ### User management
@@ -116,4 +117,4 @@ All require `Authorization: Bearer <ADMIN_TOKEN>` and `{"clientId":"octo-proswin
 
 ---
 
-_Last updated: 2026-03-29_
+_Last updated: 2026-03-29 (v2)_
