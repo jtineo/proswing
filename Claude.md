@@ -1,473 +1,119 @@
-# Claude.md - Mindbody MCP Server v2.0
+# CLAUDE.md
 
-## Overview
-This is the Mindbody MCP Server - a comprehensive Model Context Protocol server that provides AI assistants with complete access to the Mindbody API for fitness/wellness studio management. Perfect for yoga studios, pilates studios, gyms, and wellness centers.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Core Capabilities
-- **Complete Class Management**: View, book, cancel, substitute teachers, manage waitlists
-- **Client Management**: Add/update clients, track visits, memberships, balances
-- **Sales & Commerce**: Process payments, sell packages, memberships, products
-- **Staff Management**: View schedules, manage appointments, track availability
-- **Site Operations**: Manage locations, programs, resources, session types
-- **Appointments**: Book, update, find available slots
-- **Enrollments**: Manage courses, workshops, series registrations
+## What this is
 
-## Available Tools (50+ endpoints)
+OctoEmployee for ProSwing Athletic Training. A mobile-first PWA (v0.10) deployed on Vercel. Staff log in via email PIN, then chat with **Otto** — an AI business partner (Claude) that has live access to Mindbody member data. Nightly sync scores all members for churn risk and writes results to GoHighLevel CRM.
 
-### 📅 Class Management
+No framework, no build step, no bundler. The entire frontend is `index.html`. Every backend endpoint is a Vercel serverless function under `api/`.
 
-#### `getClasses`
-Get all classes with comprehensive filtering options.
+## Deploying
 
-**Parameters:**
-- `startDate` (optional): Start date in YYYY-MM-DD format
-- `endDate` (optional): End date in YYYY-MM-DD format
-- `locationIds` (optional): Array of location IDs
-- `classDescriptionIds` (optional): Array of class type IDs
-- `staffIds` (optional): Array of instructor IDs
+Push to `main` — Vercel auto-deploys. No CLI needed.
 
-**Returns:** List of classes with availability, instructor, location, and booking status
-
-#### `getClassDescriptions`
-Get all class types offered (Vinyasa, Hatha, Hot Yoga, etc.).
-
-**Returns:** Complete list of class types with descriptions and prerequisites
-
-#### `getClassSchedules`
-Get recurring class schedules/templates.
-
-**Parameters:**
-- `locationIds` (optional): Filter by locations
-- `classDescriptionIds` (optional): Filter by class types
-- `staffIds` (optional): Filter by instructors
-- `programIds` (optional): Filter by programs
-
-#### `addClientToClass`
-Book a client into a class.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `classId` (required): Class ID to book
-- `requirePayment` (optional): Require payment (default true)
-- `waitlist` (optional): Add to waitlist if full
-
-#### `removeClientFromClass`
-Cancel a client's class booking.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `classId` (required): Class ID
-- `lateCancel` (optional): Mark as late cancellation
-
-#### `getWaitlistEntries`
-View waitlist entries for classes.
-
-**Parameters:**
-- `classScheduleIds` (optional): Class schedule IDs
-- `classIds` (optional): Specific class IDs
-- `clientIds` (optional): Filter by clients
-
-#### `substituteClassTeacher`
-Substitute an instructor for a class.
-
-**Parameters:**
-- `classId` (required): Class ID
-- `originalTeacherId` (required): Original instructor ID
-- `substituteTeacherId` (required): Substitute instructor ID
-
-### 👥 Client Management
-
-#### `getClients`
-Search and retrieve client information.
-
-**Parameters:**
-- `searchText` (optional): Search by name/email/phone
-- `clientIds` (optional): Specific client IDs
-- `lastModifiedDate` (optional): Recently modified clients
-- `isProspect` (optional): Filter prospects
-
-**Returns:** Client details including contact info, emergency contacts, membership status
-
-#### `addClient`
-Register a new client.
-
-**Parameters:**
-- `firstName` (required): First name
-- `lastName` (required): Last name
-- `email` (optional): Email address
-- `mobilePhone` (optional): Mobile phone
-- `birthDate` (optional): Birth date
-- Plus address, emergency contact, and preference fields
-
-#### `updateClient`
-Update existing client information.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `updates` (required): Object with fields to update
-
-#### `getClientVisits`
-Get client's attendance history.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `startDate` (optional): Start date
-- `endDate` (optional): End date
-
-**Returns:** Visit history with attendance stats, no-shows, late cancels
-
-#### `getClientMemberships`
-View client's active memberships.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `locationId` (optional): Filter by location
-
-#### `addClientArrival`
-Check in a client at the studio.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `locationId` (required): Location ID
-
-#### `getClientAccountBalances`
-Get client's account and credit balances.
-
-**Parameters:**
-- `clientId` (required): Client ID
-
-#### `getClientContracts`
-View client's contracts and auto-renewing memberships.
-
-**Parameters:**
-- `clientId` (required): Client ID
-
-### 💰 Sales & Commerce
-
-#### `getServices`
-Get available services (class packages, memberships).
-
-**Parameters:**
-- `programIds` (optional): Filter by programs
-- `sessionTypeIds` (optional): Filter by session types
-- `locationId` (optional): Filter by location
-- `classId` (optional): Services for specific class
-
-#### `getPackages`
-Get class package options.
-
-**Parameters:**
-- `locationId` (optional): Filter by location
-- `classScheduleId` (optional): Packages for specific class
-
-#### `getProducts`
-Get retail products (mats, blocks, apparel).
-
-**Parameters:**
-- `productIds` (optional): Specific products
-- `searchText` (optional): Search products
-- `categoryIds` (optional): Filter by category
-- `sellOnline` (optional): Online products only
-
-#### `getContracts`
-Get membership contract types.
-
-**Parameters:**
-- `contractIds` (optional): Specific contracts
-- `soldOnline` (optional): Online contracts only
-- `locationId` (optional): Filter by location
-
-#### `checkoutShoppingCart`
-Process a complete purchase transaction.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `items` (required): Array of items to purchase
-- `payments` (required): Payment methods
-- `promotionCode` (optional): Discount code
-- `sendEmail` (optional): Send receipt
-
-#### `purchaseContract`
-Purchase a membership/contract.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `contractId` (required): Contract type ID
-- `startDate` (required): Start date
-- `firstPaymentOccurs` (optional): Payment timing
-- `promotionCode` (optional): Discount code
-
-### 🏢 Site & Location Management
-
-#### `getSites`
-Get business/site information.
-
-**Returns:** Site details, payment settings, branding, timezone
-
-#### `getLocations`
-Get all studio locations.
-
-**Returns:** Locations with addresses, hours, amenities, coordinates
-
-#### `getPrograms`
-Get programs offered (Yoga, Pilates, Barre, etc.).
-
-**Parameters:**
-- `scheduleType` (optional): Filter by type (Class/Enrollment/Appointment)
-- `onlineOnly` (optional): Online programs only
-
-#### `getResources`
-Get resources (rooms, equipment).
-
-**Parameters:**
-- `sessionTypeIds` (optional): Filter by session type
-- `locationId` (optional): Filter by location
-- `startDateTime` (optional): Available from
-- `endDateTime` (optional): Available until
-
-#### `getSessionTypes`
-Get session types (class formats, appointment types).
-
-**Parameters:**
-- `programIds` (optional): Filter by programs
-- `onlineOnly` (optional): Online sessions only
-
-#### `getStaff`
-Get all staff members.
-
-**Parameters:**
-- `staffIds` (optional): Specific staff IDs
-- `filters` (optional): Apply filters
-- `sessionTypeIds` (optional): Staff for session types
-- `locationIds` (optional): Staff at locations
-
-#### `getTeacherSchedule`
-Get a teacher's complete schedule.
-
-**Parameters:**
-- `teacherName` (required): Teacher's name
-- `startDate` (optional): Start date
-- `endDate` (optional): End date
-
-**Returns:** Detailed schedule with classes, locations, and availability
-
-### 📆 Appointments
-
-#### `getStaffAppointments`
-View staff appointment schedules.
-
-**Parameters:**
-- `staffIds` (required): Staff member IDs
-- `locationIds` (optional): Filter by location
-- `startDate` (optional): Start date
-- `endDate` (optional): End date
-
-#### `addAppointment`
-Book a new appointment.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `staffId` (required): Staff member ID
-- `locationId` (required): Location ID
-- `sessionTypeId` (required): Service type ID
-- `startDateTime` (required): Start time (ISO format)
-- `notes` (optional): Appointment notes
-
-#### `updateAppointment`
-Modify an existing appointment.
-
-**Parameters:**
-- `appointmentId` (required): Appointment ID
-- `staffId` (optional): Change staff
-- `startDateTime` (optional): New time
-- `notes` (optional): Update notes
-
-#### `getBookableItems`
-Find available appointment slots.
-
-**Parameters:**
-- `sessionTypeIds` (required): Service types
-- `locationIds` (optional): Locations
-- `staffIds` (optional): Specific staff
-- `startDate` (optional): Search from
-- `endDate` (optional): Search until
-
-#### `getActiveSessionTimes`
-Get recurring availability patterns.
-
-**Parameters:**
-- `scheduleType` (optional): Type filter
-- `sessionTypeIds` (optional): Session types
-- `days` (optional): Days of week
-
-#### `getScheduleItems`
-Get detailed schedule availability.
-
-**Parameters:**
-- `locationIds` (optional): Locations
-- `staffIds` (optional): Staff members
-- `startDate` (optional): Start date
-- `endDate` (optional): End date
-
-### 🎓 Enrollments (Courses/Workshops)
-
-#### `getEnrollments`
-Get available enrollments (workshops, courses, series).
-
-**Parameters:**
-- `locationIds` (optional): Filter by location
-- `staffIds` (optional): Filter by instructor
-- `programIds` (optional): Filter by program
-- `startDate` (optional): Starting from
-- `endDate` (optional): Ending by
-
-**Returns:** Enrollment options with availability and pricing
-
-#### `addClientToEnrollment`
-Register client for course/workshop.
-
-**Parameters:**
-- `clientId` (required): Client ID
-- `classScheduleIds` (required): Course IDs
-- `enrollmentDates` (optional): Specific dates
-- `waitlist` (optional): Add to waitlist
-
-#### `getClientEnrollments`
-View client's enrollments.
-
-**Parameters:**
-- `clientId` (required): Client ID
-
-**Returns:** Current and past enrollments with attendance
-
-## Architecture & Performance
-
-### High Performance
-- Built on Bun runtime for 4x faster execution
-- Intelligent caching system (5-min classes, 60-min static data)
-- Automatic retry with exponential backoff
-- Rate limit aware (2000 req/hour limit)
-
-### Authentication
-- OAuth 2.0 with automatic token refresh
-- Secure credential management via environment variables
-- Site-specific authentication support
-
-### Error Handling
-- User-friendly error messages
-- Graceful API failure handling
-- Detailed debug logging available
-
-## Common Use Cases
-
-### Daily Operations
-```
-"Show me today's yoga classes"
-"Check in Sarah Johnson" 
-"Book John into the 6pm Vinyasa class"
-"Who's on the waitlist for tomorrow's Hot Yoga?"
+```bash
+git add <files>
+git commit -m "description"
+git push
 ```
 
-### Staff Management
-```
-"Get Alexia's teaching schedule this week"
-"Find a substitute for Maria's Thursday class"
-"Show me which instructors teach Pilates"
-"What appointments does Dr. Smith have today?"
-```
+Or use the `/update-proswing` slash command in Claude Code, which commits, pushes, and runs a live sync in one step.
 
-### Client Services
-```
-"Add new client Jennifer Wilson"
-"What's Michael's attendance this month?"
-"Show Sarah's active memberships"
-"Get client balance for ID 12345"
-```
+## Testing endpoints locally
 
-### Sales Operations
-```
-"What class packages are available?"
-"Show me unlimited membership options"
-"Process purchase of 10-class package for Amy"
-"What products do we sell online?"
+Vercel CLI (`vercel dev`) will run the functions locally. Alternatively, test the live deployment directly:
+
+```bash
+# Check auth status
+curl https://octo-proswing.vercel.app/api/auth/status
+
+# Request a login PIN
+curl -X POST https://octo-proswing.vercel.app/api/auth/request \
+  -H "Content-Type: application/json" \
+  -d '{"email":"dan@proswing.com"}'
+
+# Trigger sync (requires ADMIN_TOKEN from .env)
+curl -X POST https://octo-proswing.vercel.app/api/sync \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"octo-proswing-001"}'
 ```
 
-### Business Analytics
-```
-"How many spots available in this week's classes?"
-"Show class attendance by instructor"
-"Get waitlist counts by class type"
-"List all studio locations and hours"
-```
+## Architecture
 
-## Configuration
+### Auth flow
+1. `api/auth/request.js` — validates email against `config/users.json`, generates a 6-digit PIN, HMAC-hashes it with `PIN_STORE_SECRET`, stores in an in-memory `Map`, and sends the plain PIN via GHL email conversations API (v1).
+2. `api/auth/verify.js` — re-hashes the submitted PIN and compares with `timingSafeEqual`. On success, issues a 30-day `octo_session` HttpOnly cookie (base64url payload + HMAC-SHA256 signature using `AUTH_SECRET`). Max 5 attempts before lockout.
+3. `api/auth/logout.js` — clears the `octo_session` cookie.
+4. `api/auth/status.js` — returns current session validity (used by the frontend to gate the chat UI).
+5. All protected endpoints (`api/chat.js`) verify the session cookie by re-deriving the HMAC and checking expiry.
 
-### Required Environment Variables
-```
-MINDBODY_API_KEY=your_api_key
-MINDBODY_SITE_ID=your_site_id
-MINDBODY_SOURCE_NAME=your_source_name
-MINDBODY_SOURCE_PASSWORD=your_source_password
-```
+**PIN store is an in-memory module-level `Map` in `request.js`, shared with `verify.js` via ES module import.** This means PINs do not survive a cold start — users must re-request if the function instance goes cold.
 
-### Optional Settings
-```
-MINDBODY_API_URL=https://api.mindbodyonline.com/public/v6
-CACHE_TTL_MINUTES=5
-MCP_SERVER_NAME=mindbody-mcp
-MCP_SERVER_VERSION=2.0.0
+### GHL API usage
+Two different base URLs are used:
+- `https://rest.gohighlevel.com/v1` — SMS sending only (`/conversations/messages`)
+- `https://services.leadconnectorhq.com` — contact listing, creating, updating custom fields, and setting `externalId`
+
+Custom field updates use the v2 API with **field IDs** (not key names). The key→ID map lives at the top of `api/sync.js`. Format:
+```js
+{ customFields: [{ id: '<field_id>', field_value: value }] }
+// Header: 'Version': '2021-07-28'
 ```
 
-## Best Practices
+The GHL contact's built-in `externalId` field stores the Mindbody client ID. This is set via `PUT /contacts/:id` with `{ externalId: String(mbClientId) }` and is used as the primary match key during sync.
 
-### Searching
-- Use exact names when known for better performance
-- Provide date ranges to limit data returned
-- Use IDs instead of names when available
+### Mindbody API usage
+- Auth: staff username/password → `POST /usertoken/issue` → `AccessToken` (Bearer token)
+- Visit history is pulled from `/appointment/staffappointments` (not `/client/visits`) — the appointments endpoint returns all client visits and is paginated with `limit`/`offset`
+- Client details fetched in batches of 20 via `/client/clients?clientIds[]=...`
 
-### Booking
-- Always check availability before booking
-- Handle waitlist scenarios gracefully
-- Verify payment requirements
+### Risk scoring (`api/sync.js`)
+Score 0–10 based on: days since last visit (40%), visit frequency drop last 30 vs prior 30 days (25%), upcoming package expiry within 14 days (20%), no-shows (5 pts each). Score ≥ 7 = `at-risk`, score < 4 with high lifetime value = `vip`, else `active`.
 
-### Caching
-- Class data cached for 5 minutes
-- Static data (locations, staff) cached for 60 minutes
-- Cache clears automatically on write operations
+### Chat (`api/chat.js`)
+On each request, pulls live Mindbody appointments for the last 60 days, scores every client, fetches names for the top 20 at-risk + 10 recently active, and injects a plain-text summary into the Claude system prompt. Result cached in-memory for 1 hour. Revenue questions are role-gated — only `owner` role can ask about money.
 
-## Troubleshooting
+### Contact linking (`api/link.js`)
+One-time (or periodic) endpoint that links Mindbody members to GHL contacts by writing the Mindbody client ID into GHL's `externalId` field. Run this after initial setup or whenever new MB members need to be synced to GHL.
 
-### Common Issues
+- Fetches appointments from the last 180 days to identify active members
+- Matches existing GHL contacts by `externalId` → email → phone
+- Creates a new GHL contact if no match found
+- Caps at 40 updates per run to stay within Vercel's 60s function timeout — re-run if `remaining > 0` in the response
+- Protected by `ADMIN_TOKEN`
 
-**"Teacher not found"**
-- Check exact spelling
-- Try first name only or last name only
-- Use getStaff to list all teachers
+### User management
+`config/users.json` is read at runtime via `fs.readFileSync`. Active users: **Dan Gray** (owner, `jaime+proswing@tineo.me`). To add/remove users without redeploying, use `api/admin/users.js` (requires `x-admin-token` header) — changes are in-memory only and reset on cold start. For permanent changes, edit the file and push.
 
-**"Class is full"**
-- Check waitlist availability
-- Suggest alternative times
-- Show similar classes
+## Environment variables
 
-**Rate limits**
-- Implement request throttling
-- Use caching effectively
-- Batch operations when possible
+All secrets live in `.env` locally and must also be added to the Vercel dashboard (Project → Environment Variables → Production + Preview). Missing dashboard vars are the #1 cause of production failures.
 
-**Empty results**
-- Verify date ranges
-- Check location filters
-- Ensure teacher has scheduled classes
+| Variable | Purpose |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude API (Otto's brain) |
+| `GHL_API_KEY` | GoHighLevel agency-level key |
+| `GHL_LOCATION_ID` | GHL sub-account location ID |
+| `MINDBODY_API_KEY` | Mindbody developer API key |
+| `MINDBODY_SITE_ID` | Mindbody numeric site ID |
+| `MINDBODY_STAFF_USERNAME` | Dedicated API staff account username |
+| `MINDBODY_STAFF_PASSWORD` | Dedicated API staff account password |
+| `AUTH_SECRET` | 64-char hex — signs session cookies |
+| `PIN_STORE_SECRET` | 32-char hex — HMAC-hashes PINs |
+| `ADMIN_TOKEN` | 64-char hex — protects `/api/sync`, `/api/report`, `/api/briefing`, `/api/link` |
+| `AGENCY_OWNER_CONTACT_ID` | GHL contact ID that receives sync failure alerts |
 
-## Future Enhancements
-- AI-powered substitute recommendations
-- Predictive attendance analytics
-- Automated waitlist management
-- Multi-site synchronization
-- Advanced reporting tools
-- Webhook integration for real-time updates
-- Mobile app integration
-- Revenue optimization suggestions
+## Scheduled jobs (via GHL workflows)
 
-## Support
-For issues or questions about the MCP server, please check the repository documentation or contact support.
+Three GHL HTTP Request workflows call the protected endpoints:
+- **Nightly sync** — 2am daily → `POST /api/sync`
+- **Monthly report** — 1st of month 9am → `POST /api/report`
+- **Monday briefing** — Monday 8am → `POST /api/briefing`
+
+All require `Authorization: Bearer <ADMIN_TOKEN>` and `{"clientId":"octo-proswing-001"}` body.
+
+---
+
+_Last updated: 2026-03-29_
