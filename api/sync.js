@@ -43,13 +43,15 @@ async function ghlSendSms(contactId, message) {
 
 async function ghlUpdateContact(contactId, fields) {
   const ghlKey = process.env.GHL_API_KEY;
-  await fetchWithTimeout(`${GHL_BASE}/contacts/${contactId}`, {
+  const customFields = Object.entries(fields).map(([key, field_value]) => ({ key, field_value }));
+  await fetchWithTimeout(`${GHL_BASE2}/contacts/${contactId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${ghlKey}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Version': '2021-07-28'
     },
-    body: JSON.stringify({ customField: fields })
+    body: JSON.stringify({ customFields })
   });
 }
 
