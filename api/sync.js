@@ -41,9 +41,29 @@ async function ghlSendSms(contactId, message) {
   });
 }
 
+// Field key → GHL custom field ID mapping
+const GHL_FIELD_IDS = {
+  'contact.risk_score':                '5EDNb2oC1gvGdtvLgNlV',
+  'contact.member_segment':            'o5WPqC5CCWTiYdiEPX2S',
+  'contact.days_since_visit':          'jkEPIFUnvAwUctSZFLfe',
+  'contact.last_visit_date':           'OijfvU1GrJwnweXGb81G',
+  'contact.package_expiry':            'hANHqKanhBgustQM6oa2',
+  'contact.lifetime_value':            'Gm2WhfxPpEyaNAqdAkRJ',
+  'contact.last_sync_result':          'mu6Ac274nldfGOLH4dxQ',
+  'contact.last_sync_time':            'afs9HmJQ8ea4ErdFoSxI',
+  'contact.last_sync_status':          'o1hLZzF5Evuk1uS1w01D',
+  'contact.last_sync_count':           '1ru38ovOsZaHRBdE7bhu',
+  'contact.members_recovered_increment': '11yQ2UDsitFvKBk0tyFJ',
+  'contact.revenue_recovered_increment': 'NbS6XAXteLGrgZGq0QJ8',
+  'contact.new_members_increment':     'jm5AQXYjJkO8XKAfrC0A',
+  'contact.at_risk_caught_increment':  '4utx2oyCrkzDneJvfLpq'
+};
+
 async function ghlUpdateContact(contactId, fields) {
   const ghlKey = process.env.GHL_API_KEY;
-  const customFields = Object.entries(fields).map(([key, field_value]) => ({ key, field_value }));
+  const customFields = Object.entries(fields)
+    .filter(([key]) => GHL_FIELD_IDS[key])
+    .map(([key, field_value]) => ({ id: GHL_FIELD_IDS[key], field_value }));
   await fetchWithTimeout(`${GHL_BASE2}/contacts/${contactId}`, {
     method: 'PUT',
     headers: {
