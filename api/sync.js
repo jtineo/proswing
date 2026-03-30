@@ -435,6 +435,9 @@ export default async function handler(req, res) {
       success: true,
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
+      ghlMatched: ghlUpdates.length,
+      ghlEmailMapSize: Object.keys(byEmail).length,
+      ghlPhoneMapSize: Object.keys(byPhone).length,
       errors: syncRecord.errors.slice(0, 5)
     });
 
