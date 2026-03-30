@@ -210,10 +210,12 @@ export default async function handler(req, res) {
   const ghlContacts = await fetchAllGhlContacts(ghlKey, ghlLocationId);
   const byEmail = {};
   const byPhone = {};
+  const byMbId  = {}; // GHL externalId → GHL contact ID
   for (const c of ghlContacts) {
     if (c.email) byEmail[c.email.toLowerCase()] = c.id;
     const norm = normalizePhone(c.phone);
     if (norm) byPhone[norm] = c.id;
+    if (c.externalId) byMbId[String(c.externalId)] = c.id;
   }
 
   // ── Step 5: Match existing or create new GHL contact, then link ──
@@ -224,8 +226,8 @@ export default async function handler(req, res) {
   const errors = [];
 
   for (const member of members) {
-    // Skip if already linked
-    if (member.ExternalId) {
+    // Skip if GHL already has this Mindbody ID in externalId
+    if (byMbId[String(member.Id)]) {
       alreadyLinked++;
       continue;
     }
@@ -238,8 +240,8 @@ export default async function handler(req, res) {
     const phones = [member.MobilePhone, member.HomePhone, member.WorkPhone]
       .map(normalizePhone).filter(Boolean);
 
-    let ghlContactId = null;
-    if (email && byEmail[email]) ghlContactId = byEmail[email];
+    let ghlContactId = byMbId[String(member.Id)] || null;
+    if (!ghlContactId && email && byEmail[email]) ghlContactId = byEmail[email];
     if (!ghlContactId) {
       for (const p of phones) {
         if (byPhone[p]) { ghlContactId = byPhone[p]; break; }
@@ -259,8 +261,12 @@ export default async function handler(req, res) {
         if (norm) byPhone[norm] = ghlContactId;
       }
 
-      // Set ExternalId in Mindbody
-      await mbUpdateClientExternalId(member.Id, ghlContactId, accessToken);
+      // Write Mindbody client ID to GHL's built-in externalId field
+      await fetchWithTimeout(`${GHL_BASE2}/contacts/${ghlContactId}`, {
+        method: 'PUT',
+        headers: GHL_V2_HEADERS(ghlKey),
+        body: JSON.stringify({ externalId: String(member.Id) })
+      });
       linked++;
     } catch (e) {
       updateErrors++;
@@ -268,7 +274,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const remaining = members.filter(m => !m.ExternalId).length - linked - updateErrors;
+  const remaining = members.filter(m => !byMbId[String(m.Id)]).length - linked - updateErrors;
 
   return res.status(200).json({
     success: true,

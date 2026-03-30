@@ -84,8 +84,9 @@ function normalizePhone(raw) {
 }
 
 async function fetchGhlContactMaps(ghlKey, locationId) {
-  const byEmail = {};
-  const byPhone = {};
+  const byEmail    = {};
+  const byPhone    = {};
+  const byMbId     = {}; // GHL externalId (= Mindbody client ID) → GHL contact ID
   let startAfterId = null;
 
   for (let page = 0; page < 25; page++) {
@@ -110,13 +111,14 @@ async function fetchGhlContactMaps(ghlKey, locationId) {
       if (c.email) byEmail[c.email.toLowerCase()] = c.id;
       const norm = normalizePhone(c.phone);
       if (norm) byPhone[norm] = c.id;
+      if (c.externalId) byMbId[String(c.externalId)] = c.id;
     }
 
     if (batch.length < 100) break;
     startAfterId = batch[batch.length - 1].id;
   }
 
-  return { byEmail, byPhone };
+  return { byEmail, byPhone, byMbId };
 }
 
 async function mbGetStaffToken() {
@@ -332,9 +334,9 @@ export default async function handler(req, res) {
     }
     console.log('[sync] Active members fetched:', members.length);
 
-    // ── Build GHL contact lookup maps (email + phone) ──
-    const { byEmail, byPhone } = await fetchGhlContactMaps(ghlKey, ghlLocationId);
-    console.log(`[sync] GHL contact map built: ${Object.keys(byEmail).length} emails, ${Object.keys(byPhone).length} phones`);
+    // ── Build GHL contact lookup maps (mbId + email + phone) ──
+    const { byEmail, byPhone, byMbId } = await fetchGhlContactMaps(ghlKey, ghlLocationId);
+    console.log(`[sync] GHL contact map built: ${Object.keys(byMbId).length} mbIds, ${Object.keys(byEmail).length} emails, ${Object.keys(byPhone).length} phones`);
 
     // Compute risk for all members, collect GHL updates to run in parallel batches
     const ghlUpdates = []; // { contactId, fields }
@@ -354,12 +356,13 @@ export default async function handler(req, res) {
 
       const risk = computeRiskScore(visits, member, lookbackDays);
 
-      // Find GHL contact by email or phone
+      // Find GHL contact — prefer Mindbody ID match, fall back to email/phone
       const email = (member.Email || '').toLowerCase();
       const phones = [member.MobilePhone, member.HomePhone, member.WorkPhone]
         .map(normalizePhone).filter(Boolean);
 
-      let ghlContactId = (email && byEmail[email]) || null;
+      let ghlContactId = byMbId[String(member.Id)] || null;
+      if (!ghlContactId) ghlContactId = (email && byEmail[email]) || null;
       if (!ghlContactId) {
         for (const p of phones) {
           if (byPhone[p]) { ghlContactId = byPhone[p]; break; }
@@ -436,6 +439,7 @@ export default async function handler(req, res) {
       processed: syncRecord.membersProcessed,
       atRisk: syncRecord.atRiskFound,
       ghlMatched: ghlUpdates.length,
+      ghlMbIdMapSize: Object.keys(byMbId).length,
       ghlEmailMapSize: Object.keys(byEmail).length,
       ghlPhoneMapSize: Object.keys(byPhone).length,
       errors: syncRecord.errors.slice(0, 5)
