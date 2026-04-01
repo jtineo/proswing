@@ -54,7 +54,7 @@ curl -X POST https://octo-proswing.vercel.app/api/sync \
 ### GHL API usage
 Two different base URLs are used:
 - `https://rest.gohighlevel.com/v1` — SMS sending only (`/conversations/messages`)
-- `https://services.leadconnectorhq.com` — contact listing, creating, updating custom fields, and setting `externalId`
+- `https://services.leadconnectorhq.com` — contact listing, creating, and updating custom fields
 
 Custom field updates use the v2 API with **field IDs** (not key names). The key→ID map lives at the top of `api/sync.js`. Format:
 ```js
@@ -62,7 +62,7 @@ Custom field updates use the v2 API with **field IDs** (not key names). The key�
 // Header: 'Version': '2021-07-28'
 ```
 
-The GHL contact's built-in `externalId` field stores the Mindbody client ID. This is set via `PUT /contacts/:id` with `{ externalId: String(mbClientId) }` and is used as the primary match key during sync.
+The Mindbody client ID is stored in a **GHL custom field** (ID: `swyQKBCQLNGPHAZkiuZf`, key: `contact.mindbody_id`), not in the built-in `externalId` field. Both `api/link.js` and `api/sync.js` read/write this field to match contacts across systems.
 
 ### Mindbody API usage
 - Auth: staff username/password → `POST /usertoken/issue` → `AccessToken` (Bearer token)
@@ -76,13 +76,13 @@ Score 0–10 based on: days since last visit (40%), visit frequency drop last 30
 On each request, pulls live Mindbody appointments for the last 60 days, scores every client, fetches names for the top 20 at-risk + 10 recently active, and injects a plain-text summary into the Claude system prompt. Result cached in-memory for 1 hour. Revenue questions are role-gated — only `owner` role can ask about money.
 
 ### Contact linking (`api/link.js`)
-One-time (or periodic) endpoint that links Mindbody members to GHL contacts by writing the Mindbody client ID into GHL's `externalId` field. Run this after initial setup or whenever new MB members need to be synced to GHL.
+One-time (or periodic) endpoint that links Mindbody members to GHL contacts by writing the Mindbody client ID into a GHL custom field (`swyQKBCQLNGPHAZkiuZf`). Run this after initial setup or whenever new MB members need to be linked.
 
 - Fetches appointments from the last 180 days to identify active members
-- Matches existing GHL contacts by `externalId` → email → phone
-- Creates a new GHL contact if no match found
-- Caps at 40 updates per run to stay within Vercel's 60s function timeout
-- Accepts optional `offset` body param to paginate across multiple calls — response includes `nextOffset` (null when complete)
+- Matches GHL contacts by custom field MB ID → email → phone
+- **Does not create new GHL contacts** — skips unmatched members (counted in `unmatched` response field)
+- Caps at 40 successful links per run to stay within Vercel's 60s timeout
+- Accepts optional `offset` body param to paginate — response includes `nextOffset` (null when complete)
 - Protected by `ADMIN_TOKEN`
 
 ### User management
@@ -117,4 +117,4 @@ All require `Authorization: Bearer <ADMIN_TOKEN>` and `{"clientId":"octo-proswin
 
 ---
 
-_Last updated: 2026-03-29 (v2)_
+_Last updated: 2026-03-31_
