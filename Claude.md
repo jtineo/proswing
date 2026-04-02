@@ -10,12 +10,13 @@ No framework, no build step, no bundler. The entire frontend is `index.html`. Ev
 
 ## Deploying
 
-Push to `main` — Vercel auto-deploys. No CLI needed.
+**GitHub auto-deploy is currently broken** (Vercel webhook stopped after commit `0650b25`). Deploy manually after pushing:
 
 ```bash
 git add <files>
 git commit -m "description"
 git push
+npx vercel deploy --prod   # must run from octo-Proswing/ directory
 ```
 
 Or use the `/update-proswing` slash command in Claude Code, which commits, pushes, and runs a live sync in one step.
@@ -117,4 +118,4 @@ All require `Authorization: Bearer <ADMIN_TOKEN>` and `{"clientId":"octo-proswin
 
 ---
 
-_Last updated: 2026-03-31_
+_Last updated: 2026-04-01_
